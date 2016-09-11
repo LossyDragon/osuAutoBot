@@ -1,5 +1,8 @@
+This just a fork of osuAutoBot to just tamper with it and fix up a few things to make it semi usable.
+Dont expect this project to be working, I'm only using this as a programming excerise. :)
+
 # osuAutoBot
-https://github.com/AndreySeVeN
+Original author: https://github.com/AndreySeVeN
 
     osu!AutoBot
     Copyright (C) 2016  Andrey Tokarev

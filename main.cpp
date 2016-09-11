@@ -14,11 +14,12 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
- **/
+**/
 
-
+//Defines.
 #define _USE_MATH_DEFINES
 
+//Includes.
 #include <cmath>
 #include <iostream>
 #include "HitObject.h"
@@ -27,22 +28,28 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <thread>
 #include <TlHelp32.h>
 #include <psapi.h>
+#include <limits>
+
+//Variables.
 vector<TimingPoint> TimingPoints;
 vector<HitObject> HitObjects;
+
 float StackLeniency;
 float CircleSize;
 float SliderMultiplier;
-
 float XMultiplier, YMultiplier;
 float StackOffset;
+float OverallDifficulty;
 
-HWND OsuWindow;
-bool songStarted;
-DWORD OsuProcessID;
-HANDLE OsuProcessHandle;
-LPVOID TimeAdress;
 int SongTime;
+bool songStarted;
+HWND OsuWindow;
+DWORD OsuProcessID;
+LPVOID TimeAdress;
+HANDLE OsuProcessHandle;
+///###################################################################################
 
+//Get Base Address.
 LPVOID GetBaseAddress(HANDLE hProc)
 {
 	MODULEINFO miInfo;
@@ -51,6 +58,7 @@ LPVOID GetBaseAddress(HANDLE hProc)
 	return nullptr;
 }
 
+//Get Memory Size.
 DWORD GetMemorySize(HANDLE hProc)
 {
 	PROCESS_MEMORY_COUNTERS pmcInfo;
@@ -59,16 +67,17 @@ DWORD GetMemorySize(HANDLE hProc)
 	return 0;
 }
 
+//Find Pattern.
 DWORD FindPattern(HANDLE ProcessHandle, const byte Signature[], unsigned const int ByteCount) {
 	const static unsigned int Mult = 4096;
-	const static unsigned int StartAdress = reinterpret_cast<int>(GetBaseAddress(OsuProcessHandle));
+	const static unsigned int StartAdress = reinterpret_cast<INT>(GetBaseAddress(OsuProcessHandle));
 	const static unsigned int EndAdress = StartAdress + GetMemorySize(OsuProcessHandle);
 	static bool Hit;
 
 	byte ByteInMemory[Mult];
 
 	for (auto i = StartAdress; i < EndAdress; i += Mult - ByteCount) {
-		ReadProcessMemory(ProcessHandle, reinterpret_cast<LPCVOID>(i), &ByteInMemory, Mult, nullptr);
+		ReadProcessMemory(ProcessHandle, reinterpret_cast<LPVOID>(i), &ByteInMemory, Mult, nullptr);
 		for (unsigned int a = 0; a < Mult; a++) {
 			Hit = true;
 
@@ -83,6 +92,7 @@ DWORD FindPattern(HANDLE ProcessHandle, const byte Signature[], unsigned const i
 	return 0;
 }
 
+//Time Thread.
 void timeThread()
 {
 	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
@@ -97,6 +107,7 @@ int OsuWindowX, OsuWindowY;
 
 float sqrt2 = sqrtf(2.0f) / 2.0f;
 
+//Not Sure what this is, yet.
 float normalize_angle(const float &a)
 {
 	float res = a;
@@ -105,6 +116,7 @@ float normalize_angle(const float &a)
 	return res;
 }
 
+//Not Sure what this is, yet.
 float GetDelta(float angle)
 {
 	float si = abs(sinf(angle));
@@ -112,14 +124,29 @@ float GetDelta(float angle)
 	return (1.0f - sqrt2) * si;
 }
 
+//Spinner Circle Function.
 void SpinerCircleMove(const HitObject* spiner)
 {
-	vec2f center{ 
-		spiner->getStartPosition().x * XMultiplier + OsuWindowX, 
-		spiner->getStartPosition().y * YMultiplier + OsuWindowY 
+	vec2f center{
+		spiner->getStartPosition().x * XMultiplier + OsuWindowX,
+		spiner->getStartPosition().y * YMultiplier + OsuWindowY
 	};
 	auto angle = static_cast<float>((M_PI));
 	float R = 70.0f;
+
+	//Setup _another_ generic keyboard, secondary click
+	cout << "Click!" << endl;
+	INPUT key;
+	key.type = INPUT_KEYBOARD;
+	key.ki.wScan = 0;
+	key.ki.time = 0;
+	key.ki.dwExtraInfo = 0;
+
+	// Press the X key
+	key.ki.wVk = 0x58;
+	key.ki.dwFlags = 0;
+	SendInput(1, &key, sizeof(INPUT));
+
 	while (SongTime <= spiner->getEndTime() && songStarted)
 	{
 		//angle = normalize_angle(angle);
@@ -130,8 +157,13 @@ void SpinerCircleMove(const HitObject* spiner)
 		angle -= 0.056f;
 		this_thread::sleep_for(chrono::milliseconds(1));
 	}
+
+	// Release the x key
+	key.ki.dwFlags = KEYEVENTF_KEYUP;
+	SendInput(1, &key, sizeof(INPUT));
 }
 
+//Spiral Function.
 void SpiralMove(HitObject* spiner)
 {
 	vec2f center = vec2f(spiner->getStartPosition().x * XMultiplier + OsuWindowX, spiner->getStartPosition().y * YMultiplier + OsuWindowY);
@@ -147,27 +179,51 @@ void SpiralMove(HitObject* spiner)
 		this_thread::sleep_for(chrono::milliseconds(1));
 	}
 }
+
+//Not Sure what this is, yet.
 vec2f CirclePoint(vec2f center, float R, float angle) {
 	float x = cosf(angle) * R;
 	float y = sinf(angle) * R;
 	return vec2f(x, y) + center;
 }
-#include <limits>
+
+//Slider Function
 void SliderMove(HitObject* slider)
 {
+	//cout << "Inslide Slider, weee!\n";
 	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+
+	//Setup _another_ generic keyboard, secondary click
+	cout << "Click!" << endl;
+	INPUT key;
+	key.type = INPUT_KEYBOARD;
+	key.ki.wScan = 0;
+	key.ki.time = 0;
+	key.ki.dwExtraInfo = 0;
+
+	// Press the X key
+	key.ki.wVk = 0x58;
+	key.ki.dwFlags = 0;
+	SendInput(1, &key, sizeof(INPUT));
+
 	while (SongTime <= slider->getEndTime() && songStarted)
 	{
 		auto t = static_cast<float>(SongTime - slider->getStartTime()) / static_cast<float>(slider->getSliderTime());
 		auto pos = slider->getPointByT(t);
+		//cout << "Pos X: " << pos.x << ", Pos Y: " << pos.y << endl;
 		SetCursorPos(static_cast<int>((pos.x - slider->getStack() * StackOffset)* XMultiplier) + OsuWindowX, static_cast<int>((pos.y - slider->getStack() * StackOffset) * YMultiplier) + OsuWindowY);
 		this_thread::sleep_for(chrono::milliseconds(1));
 	}
+
+	// Release the x key
+	key.ki.dwFlags = KEYEVENTF_KEYUP;
+	SendInput(1, &key, sizeof(INPUT));
 }
 
+//Older Slider function.
 vec2f CatmullRoll(float t, vec2f p1, vec2f p2, vec2f p3, vec2f p4)
 {
-
+	cout << "CatmullRoll Func" << endl;
 	float t2 = t*t;
 	float t3 = t*t*t;
 	vec2f v;
@@ -176,15 +232,21 @@ vec2f CatmullRoll(float t, vec2f p1, vec2f p2, vec2f p3, vec2f p4)
 	return v;
 }
 
+//Not Sure what this is, yet.
 float vectorAngle(vec2f a, vec2f b) {
 	return abs(atan2(a.x*b.y - b.x*a.y, a.x*b.x + a.y*b.y));
 }
 
-
 float ang = float(M_PI_2);
 
+///###################################################################################
+///Below are the different types of dances.
+///###################################################################################
+
+//Dancing AutoPilot
 void DancingMoveTo(const HitObject* object)
 {
+	//cout << "DancingMoveTo Func" << endl;
 	POINT p;
 	GetCursorPos(&p);
 	auto p0 = vec2f(static_cast<float>(p.x), static_cast<float>(p.y));
@@ -205,8 +267,34 @@ void DancingMoveTo(const HitObject* object)
 	SetCursorPos(static_cast<int>(p1.x), static_cast<int>(p1.y));
 }
 
-void LinearMoveTo(const HitObject* object)
+//Custom AutoPilot
+void CustomMoveTo(const HitObject* object)
 {
+	//	cout << "CustomMoveTo Func" << endl;
+	POINT p;
+	GetCursorPos(&p);
+	auto p0 = vec2f(static_cast<float>(p.x), static_cast<float>(p.y));
+	auto p1 = vec2f((object->getStartPosition().x - StackOffset * object->getStack()) * XMultiplier + OsuWindowX, (object->getStartPosition().y - StackOffset * object->getStack())  * YMultiplier + OsuWindowY);
+	ang = -ang;
+	auto p2 = rotate(vec2f(p1 - p0) / 5.0f, ang - vectorAngle(p0, p1)) + p1;
+	auto p3 = rotate(vec2f(p1 - p0) / 5.0f, ang - vectorAngle(p0, p1)) + p0;
+	auto dt = static_cast<float>(object->getStartTime() - SongTime);
+	while (SongTime < object->getStartTime() && songStarted)
+	{
+		auto t = (dt - static_cast<float>(object->getStartTime() - SongTime)) / dt;
+		auto B = bezier(vector<vec2f>{
+			p0, p2, p3, p1
+		}, t);
+		SetCursorPos(static_cast<int>(B.x), static_cast<int>(B.y));
+		this_thread::sleep_for(chrono::milliseconds(1));
+	}
+	SetCursorPos(static_cast<int>(p1.x), static_cast<int>(p1.y));
+}
+
+//Normal AutoPilot
+void AutoMoveTo(const HitObject* object)
+{
+	//cout << "LinearMoveTo Func" << endl;
 	POINT p;
 	GetCursorPos(&p);
 	auto p0 = vec2f(static_cast<float>(p.x), static_cast<float>(p.y));
@@ -222,12 +310,56 @@ void LinearMoveTo(const HitObject* object)
 	SetCursorPos(static_cast<int>(p1.x), static_cast<int>(p1.y));
 }
 
+//Current AutoPilot we're working on. 
+void MathMoveTo(const HitObject* object)
+{
+	// Generic Keyboard Setup
+	cout << "Click!" << endl;
+	INPUT key;
+	key.type = INPUT_KEYBOARD;
+	key.ki.wScan = 0;
+	key.ki.time = 0;
+	key.ki.dwExtraInfo = 0;
+
+	POINT p;
+	GetCursorPos(&p);
+	auto p0 = vec2f(static_cast<float>(p.x), static_cast<float>(p.y));
+	auto p1 = vec2f((object->getStartPosition().x - StackOffset * object->getStack()) * XMultiplier + OsuWindowX, (object->getStartPosition().y - StackOffset * object->getStack())  * YMultiplier + OsuWindowY);
+	auto dt = static_cast<float>(object->getStartTime() - SongTime);
+	while (SongTime < object->getStartTime() && songStarted)
+	{
+		//Moves cursor from note to note, commenting out will result in instant snapping
+		auto t = (dt - static_cast<float>(object->getStartTime() - SongTime)) / dt;
+		auto B = p0 + t*(p1 - p0);
+		SetCursorPos(static_cast<int>(B.x), static_cast<int>(B.y));
+		this_thread::sleep_for(chrono::milliseconds(1));
+	}
+	SetCursorPos(static_cast<int>(p1.x), static_cast<int>(p1.y));
+
+	//Press the Z key
+	key.ki.wVk = 0x5A;
+	key.ki.dwFlags = 0;
+	SendInput(1, &key, sizeof(INPUT));
+	///Sleep msec changes the time on how long the key should be held.
+	this_thread::sleep_for(chrono::milliseconds(5));
+
+	//Release the Z key
+	key.ki.dwFlags = KEYEVENTF_KEYUP;
+	SendInput(1, &key, sizeof(INPUT));
+
+}
+
+///###################################################################################
+///Above are the different types of dances.
+///###################################################################################
+
+//Auto Thread... Where you change your 'Dance' function.
 void AutoThread()
 {
 	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
 	for (auto Hit : HitObjects)
 	{
-		DancingMoveTo(&Hit);
+		MathMoveTo(&Hit);
 		if (Hit.itSpinner())
 		{
 			SpinerCircleMove(&Hit);
@@ -243,8 +375,10 @@ void AutoThread()
 	}
 }
 
+//Check game (Not fully understood yet).
 void gameCheckerThread()
 {
+	//You can Set a console title here.
 	SetConsoleTitle("");
 	while (true)
 	{
@@ -296,6 +430,8 @@ void gameCheckerThread()
 		Sleep(100);
 	}
 }
+
+//Get process ID from osu.exe
 DWORD getProcessID()
 {
 	auto hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -317,9 +453,11 @@ DWORD getProcessID()
 	CloseHandle(hSnapshot);
 	return 0;
 }
+
+//Check game
 void checkGame()
 {
-rescan:
+	//rescan:
 	cout << "Search \"osu!\" window" << endl;
 	OsuWindow = FindWindowA(nullptr, TEXT("osu!"));
 	if (OsuWindow == nullptr) {
@@ -329,7 +467,7 @@ rescan:
 			Sleep(100);
 		}
 	}
-	cout << "Osu! founded" << endl;
+	cout << "Osu! found" << endl;
 	OsuProcessID = getProcessID();
 	OsuProcessHandle = OpenProcess(PROCESS_ALL_ACCESS, false, OsuProcessID);
 	BYTE Pattern[] = { 0xA3, 0x00, 0x00, 0x00, 0x00, 0xEB, 0x00, 0xA1, 0x00, 0x00, 0x00, 0x00, 0xA3 };
@@ -339,7 +477,8 @@ rescan:
 		TimeAdress = nullptr;
 		cout << "Error in \"Timer Find\"" << endl;
 		CloseHandle(OsuProcessHandle);
-		goto rescan;
+		checkGame();
+		//goto rescan;
 	}
 	int timerr;
 	ReadProcessMemory(OsuProcessHandle, reinterpret_cast<LPCVOID>(ScanAdress), &timerr, 4, nullptr);
@@ -352,6 +491,7 @@ rescan:
 	Timer.detach();
 }
 
+//Map Difficulty
 float mapDifficultyRange(float difficulty, float min, float mid, float max)
 {
 	if (difficulty > 5.0f)
@@ -360,7 +500,8 @@ float mapDifficultyRange(float difficulty, float min, float mid, float max)
 		return mid - (mid - min)*(5.0f - difficulty) / 5.0f;
 	return mid;
 }
-float OverallDifficulty;
+
+//Parse-Load song data.
 void ParseSong(string path)
 {
 	ifstream t(path);
@@ -592,6 +733,7 @@ void ParseSong(string path)
 	}
 }
 
+//Open Song file.
 void OpenSong()
 {
 	OPENFILENAME ofn;       // common dialog box structure
@@ -612,21 +754,45 @@ void OpenSong()
 
 	// Display the Open dialog box.
 
-	if(GetOpenFileName(&ofn)){
+	if (GetOpenFileName(&ofn)) {
 		ParseSong(ofn.lpstrFile);
 	}
 }
 
+//Attempt to flush variables, so that the program shouldn't be restarted.
+void flushMe()
+{
+	TimingPoints.clear();
+	HitObjects.clear();
+	StackLeniency = NULL;
+	CircleSize = NULL;
+	SliderMultiplier = NULL;
+	XMultiplier, YMultiplier = NULL;
+	StackOffset = NULL;
+	OverallDifficulty = NULL;
+	SongTime = NULL;
+	songStarted = NULL;
 
+}
+
+//Main Function, the Begining.
 int main()
 {
 	//TimingPoint timingTest = TimingPoint("6590,461.538461538462,4,2,1,6,1,0");
 	//AllocConsole();
 	//SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
 	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+redo:
 	OpenSong();
 	checkGame();
 	getchar();
+	flushMe();
+	goto redo;
 	return 0;
 }
 
+
+//TODO: Changle the angle of note-2-note (Dance Function).
+//TODO: Fix rare slider bug going the wrong way. (P type slider?).
+//TODO: Double mouse tapping (MoveTo Function).
+//TODO: X64 builds have cast conversion warnings. 
