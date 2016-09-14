@@ -72,6 +72,7 @@ inline vec2f operator - (vec2f a, vec2f b) {
 inline vec2f operator * (float s, vec2f a) {
 	return vec2f(s * a.x, s * a.y);
 }
+
 inline vec2f operator * (vec2f a, float s) {
 	return vec2f(s * a.x, s * a.y);
 }

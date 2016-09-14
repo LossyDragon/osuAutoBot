@@ -135,7 +135,7 @@ void SpinerCircleMove(const HitObject* spiner)
 	float R = 70.0f;
 
 	//Setup _another_ generic keyboard, secondary click
-	cout << "Click!" << endl;
+	cout << "Spinner Click!" << endl;
 	INPUT key;
 	key.type = INPUT_KEYBOARD;
 	key.ki.wScan = 0;
@@ -163,30 +163,6 @@ void SpinerCircleMove(const HitObject* spiner)
 	SendInput(1, &key, sizeof(INPUT));
 }
 
-//Spiral Function.
-void SpiralMove(HitObject* spiner)
-{
-	vec2f center = vec2f(spiner->getStartPosition().x * XMultiplier + OsuWindowX, spiner->getStartPosition().y * YMultiplier + OsuWindowY);
-	float angle = static_cast<float>((M_PI));
-	float R = 0.0f;
-	while (SongTime <= spiner->getEndTime() && songStarted)
-	{
-		int x = static_cast<int>(R * cos(angle) + center.x);
-		int y = static_cast<int>(R * sin(angle) + center.y);
-		SetCursorPos(x, y);
-		angle -= 0.056f;
-		R += 0.2f;
-		this_thread::sleep_for(chrono::milliseconds(1));
-	}
-}
-
-//Not Sure what this is, yet.
-vec2f CirclePoint(vec2f center, float R, float angle) {
-	float x = cosf(angle) * R;
-	float y = sinf(angle) * R;
-	return vec2f(x, y) + center;
-}
-
 //Slider Function
 void SliderMove(HitObject* slider)
 {
@@ -194,7 +170,6 @@ void SliderMove(HitObject* slider)
 	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
 
 	//Setup _another_ generic keyboard, secondary click
-	cout << "Click!" << endl;
 	INPUT key;
 	key.type = INPUT_KEYBOARD;
 	key.ki.wScan = 0;
@@ -206,35 +181,29 @@ void SliderMove(HitObject* slider)
 	key.ki.dwFlags = 0;
 	SendInput(1, &key, sizeof(INPUT));
 
+	int xy = 0;
+
 	while (SongTime <= slider->getEndTime() && songStarted)
 	{
 		auto t = static_cast<float>(SongTime - slider->getStartTime()) / static_cast<float>(slider->getSliderTime());
 		auto pos = slider->getPointByT(t);
-		//cout << "Pos X: " << pos.x << ", Pos Y: " << pos.y << endl;
 		SetCursorPos(static_cast<int>((pos.x - slider->getStack() * StackOffset)* XMultiplier) + OsuWindowX, static_cast<int>((pos.y - slider->getStack() * StackOffset) * YMultiplier) + OsuWindowY);
+
+
+		//Debug
+		if (xy == 0){
+			cout << "Slider X: " << pos.x << ", Y: " << pos.y << endl;
+			xy = 1;
+		}
+
 		this_thread::sleep_for(chrono::milliseconds(1));
 	}
+
+	xy = 0;
 
 	// Release the x key
 	key.ki.dwFlags = KEYEVENTF_KEYUP;
 	SendInput(1, &key, sizeof(INPUT));
-}
-
-//Older Slider function.
-vec2f CatmullRoll(float t, vec2f p1, vec2f p2, vec2f p3, vec2f p4)
-{
-	cout << "CatmullRoll Func" << endl;
-	float t2 = t*t;
-	float t3 = t*t*t;
-	vec2f v;
-	v.x = ((-t3 + 2 * t2 - t)*(p1.x) + (3 * t3 - 5 * t2 + 2)*(p2.x) + (-3 * t3 + 4 * t2 + t)* (p3.x) + (t3 - t2)*(p4.x)) / 2;
-	v.y = ((-t3 + 2 * t2 - t)*(p1.y) + (3 * t3 - 5 * t2 + 2)*(p2.y) + (-3 * t3 + 4 * t2 + t)* (p3.y) + (t3 - t2)*(p4.y)) / 2;
-	return v;
-}
-
-//Not Sure what this is, yet.
-float vectorAngle(vec2f a, vec2f b) {
-	return abs(atan2(a.x*b.y - b.x*a.y, a.x*b.x + a.y*b.y));
 }
 
 float ang = float(M_PI_2);
@@ -243,78 +212,11 @@ float ang = float(M_PI_2);
 ///Below are the different types of dances.
 ///###################################################################################
 
-//Dancing AutoPilot
-void DancingMoveTo(const HitObject* object)
-{
-	//cout << "DancingMoveTo Func" << endl;
-	POINT p;
-	GetCursorPos(&p);
-	auto p0 = vec2f(static_cast<float>(p.x), static_cast<float>(p.y));
-	auto p1 = vec2f((object->getStartPosition().x - StackOffset * object->getStack()) * XMultiplier + OsuWindowX, (object->getStartPosition().y - StackOffset * object->getStack())  * YMultiplier + OsuWindowY);
-	ang = -ang;
-	auto p2 = rotate(vec2f(p1 - p0) / 2.0f, ang + vectorAngle(p0, p1)) + p0;
-	//auto p3 = rotate(vec2f(p1 - p0) / 2.0f, ang - vectorAngle(p0, p1)) + p1;
-	auto dt = static_cast<float>(object->getStartTime() - SongTime);
-	while (SongTime < object->getStartTime() && songStarted)
-	{
-		auto t = (dt - static_cast<float>(object->getStartTime() - SongTime)) / dt;
-		auto B = bezier(vector<vec2f>{
-			p0, p2, /*p3,*/ p1
-		}, t);
-		SetCursorPos(static_cast<int>(B.x), static_cast<int>(B.y));
-		this_thread::sleep_for(chrono::milliseconds(1));
-	}
-	SetCursorPos(static_cast<int>(p1.x), static_cast<int>(p1.y));
-}
-
-//Custom AutoPilot
-void CustomMoveTo(const HitObject* object)
-{
-	//	cout << "CustomMoveTo Func" << endl;
-	POINT p;
-	GetCursorPos(&p);
-	auto p0 = vec2f(static_cast<float>(p.x), static_cast<float>(p.y));
-	auto p1 = vec2f((object->getStartPosition().x - StackOffset * object->getStack()) * XMultiplier + OsuWindowX, (object->getStartPosition().y - StackOffset * object->getStack())  * YMultiplier + OsuWindowY);
-	ang = -ang;
-	auto p2 = rotate(vec2f(p1 - p0) / 5.0f, ang - vectorAngle(p0, p1)) + p1;
-	auto p3 = rotate(vec2f(p1 - p0) / 5.0f, ang - vectorAngle(p0, p1)) + p0;
-	auto dt = static_cast<float>(object->getStartTime() - SongTime);
-	while (SongTime < object->getStartTime() && songStarted)
-	{
-		auto t = (dt - static_cast<float>(object->getStartTime() - SongTime)) / dt;
-		auto B = bezier(vector<vec2f>{
-			p0, p2, p3, p1
-		}, t);
-		SetCursorPos(static_cast<int>(B.x), static_cast<int>(B.y));
-		this_thread::sleep_for(chrono::milliseconds(1));
-	}
-	SetCursorPos(static_cast<int>(p1.x), static_cast<int>(p1.y));
-}
-
-//Normal AutoPilot
-void AutoMoveTo(const HitObject* object)
-{
-	//cout << "LinearMoveTo Func" << endl;
-	POINT p;
-	GetCursorPos(&p);
-	auto p0 = vec2f(static_cast<float>(p.x), static_cast<float>(p.y));
-	auto p1 = vec2f((object->getStartPosition().x - StackOffset * object->getStack()) * XMultiplier + OsuWindowX, (object->getStartPosition().y - StackOffset * object->getStack())  * YMultiplier + OsuWindowY);
-	auto dt = static_cast<float>(object->getStartTime() - SongTime);
-	while (SongTime < object->getStartTime() && songStarted)
-	{
-		auto t = (dt - static_cast<float>(object->getStartTime() - SongTime)) / dt;
-		auto B = p0 + t*(p1 - p0);
-		SetCursorPos(static_cast<int>(B.x), static_cast<int>(B.y));
-		this_thread::sleep_for(chrono::milliseconds(1));
-	}
-	SetCursorPos(static_cast<int>(p1.x), static_cast<int>(p1.y));
-}
-
 //Current AutoPilot we're working on. 
 void MathMoveTo(const HitObject* object)
 {
 	// Generic Keyboard Setup
-	cout << "Click!" << endl;
+	//cout << "Click!" << endl;
 	INPUT key;
 	key.type = INPUT_KEYBOARD;
 	key.ki.wScan = 0;
@@ -459,6 +361,7 @@ void checkGame()
 {
 	//rescan:
 	cout << "Search \"osu!\" window" << endl;
+	//For Stable version only.
 	OsuWindow = FindWindowA(nullptr, TEXT("osu!"));
 	if (OsuWindow == nullptr) {
 		cout << "Please run osu!" << endl;
@@ -467,6 +370,7 @@ void checkGame()
 			Sleep(100);
 		}
 	}
+
 	cout << "Osu! found" << endl;
 	OsuProcessID = getProcessID();
 	OsuProcessHandle = OpenProcess(PROCESS_ALL_ACCESS, false, OsuProcessID);
@@ -477,8 +381,8 @@ void checkGame()
 		TimeAdress = nullptr;
 		cout << "Error in \"Timer Find\"" << endl;
 		CloseHandle(OsuProcessHandle);
+		Sleep(1500); //1.5 sec delay to recursion.
 		checkGame();
-		//goto rescan;
 	}
 	int timerr;
 	ReadProcessMemory(OsuProcessHandle, reinterpret_cast<LPCVOID>(ScanAdress), &timerr, 4, nullptr);
@@ -734,8 +638,10 @@ void ParseSong(string path)
 }
 
 //Open Song file.
+//#include <atlstr.h>
 void OpenSong()
 {
+	//CString fileBuf;
 	OPENFILENAME ofn;       // common dialog box structure
 	char szFile[260];       // buffer for file name
 	HWND hwnd = nullptr;              // owner window
@@ -749,11 +655,11 @@ void OpenSong()
 	ofn.nFilterIndex = 1;
 	ofn.lpstrFileTitle = nullptr;
 	ofn.nMaxFileTitle = 0;
+	//fileBuf = "%AppData%\\Local\\osu!\\Songs";
 	ofn.lpstrInitialDir = nullptr;
 	ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
 
 	// Display the Open dialog box.
-
 	if (GetOpenFileName(&ofn)) {
 		ParseSong(ofn.lpstrFile);
 	}
@@ -776,17 +682,18 @@ void flushMe()
 }
 
 //Main Function, the Begining.
+#include <ostream>
 int main()
 {
 	//TimingPoint timingTest = TimingPoint("6590,461.538461538462,4,2,1,6,1,0");
 	//AllocConsole();
 	//SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
 	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
-redo:
-	OpenSong();
-	checkGame();
-	getchar();
-	flushMe();
+	redo:
+		OpenSong();
+		checkGame();
+		getchar();
+		flushMe();
 	goto redo;
 	return 0;
 }

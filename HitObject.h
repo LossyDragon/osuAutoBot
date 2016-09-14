@@ -220,11 +220,33 @@ public:
 				auto p = split_string(SliderTokens.at(i), ":");
 				auto point = vec2f(stof(p.at(0)), stof(p.at(1)));
 				sliderPoints.push_back(point);
+
+				//More Debugging shit.
+				int yz = 0;
+				for (int xy = 0; xy < p.size(); xy++)
+				{
+					if (yz == 0)
+					{
+						cout << "After | X: " << p.at(xy) << endl;
+						yz = 1;
+					}
+					else
+					{
+						cout << "After | Y: " << p.at(xy) << endl;
+						yz = 0;
+					}
+				}
+
+
+
 			}
+
 			if (sliderPoints[sliderPoints.size() - 1] == sliderPoints[sliderPoints.size() - 2]) { // EndPoint == red dot
 				sliderPoints.resize(sliderPoints.size() - 1);
 			}
+
 			sliderType = SliderTokens[0].c_str()[0];
+
 			if (sliderType == 'L'|| sliderType == 'C') {
 				for (int i = 1; i < static_cast<int>(sliderPoints.size()); i++) {
 					auto p0 = sliderPoints[i - 1];
@@ -258,48 +280,54 @@ public:
 					sliderSegments.push_back(seg);
 				}
 			}
-			else if (sliderType == 'P') {
-				if (sliderPoints.size() != 3){
-					sliderType = 'B';
-					goto bezier;
-				}
-				vec2f start = sliderPoints[0];
-				vec2f mid = sliderPoints[1];
-				auto midcpy = mid;
-				vec2f end = sliderPoints[2];
 
-				vec2f mida = start.midPoint(mid);
-				vec2f midb = end.midPoint(mid);
-				vec2f nora = midcpy.sub(start).nor();
-				vec2f norb = midcpy.sub(end).nor();
-				vec2f circleCenter = intersect(mida, nora, midb, norb);
+			///P Sliders will break, let skip this.
+			///It appears to follow P types A LOT better, curves are off. 
 
-				vec2f startAngPoint = start.cpy().sub(circleCenter);
-				vec2f midAngPoint = midcpy.sub(circleCenter);
-				vec2f endAngPoint = end.cpy().sub(circleCenter);
-
-				startAng = atan2(startAngPoint.y, startAngPoint.x);
-				float midAng = atan2(midAngPoint.y, midAngPoint.x);
-				endAng = atan2(endAngPoint.y, endAngPoint.x);
-
-				float radius = startAngPoint.len();
-				if (!isIn(startAng, midAng, endAng)) {
-					if (abs(startAng + TWO_PI - endAng) < TWO_PI && isIn(startAng + TWO_PI, midAng, endAng))
-						startAng += TWO_PI;
-					else if (abs(startAng - (endAng + TWO_PI)) < TWO_PI && isIn(startAng, midAng, endAng + TWO_PI))
-						endAng += TWO_PI;
-					else if (abs(startAng - TWO_PI - endAng) < TWO_PI && isIn(startAng - TWO_PI, midAng, endAng))
-						startAng -= TWO_PI;
-					else if (abs(startAng - (endAng - TWO_PI)) < TWO_PI && isIn(startAng, midAng, endAng - TWO_PI))
-						endAng -= TWO_PI;
-					else
-						cout << "Angle error: " << startAng << " " << midAng << " " << endAng << endl;
-				}
-				float arcAng = PixelLength / radius;
-				endAng = endAng > startAng ? startAng + arcAng : startAng - arcAng;
-				PCenter = circleCenter;
-				PRadius = radius;
-			}
+			//else if (sliderType == 'P') {
+			//	if (sliderPoints.size() != 3){
+			//		sliderType = 'B';
+			//		goto bezier;
+			//	}
+			//	vec2f start = sliderPoints[0];
+			//	vec2f mid = sliderPoints[1];
+			//	auto midcpy = mid;
+			//	vec2f end = sliderPoints[2];
+			//
+			//	vec2f mida = start.midPoint(mid);
+			//	vec2f midb = end.midPoint(mid);
+			//	vec2f nora = midcpy.sub(start).nor();
+			//	vec2f norb = midcpy.sub(end).nor();
+			//	vec2f circleCenter = intersect(mida, nora, midb, norb);
+			//
+			//	vec2f startAngPoint = start.cpy().sub(circleCenter);
+			//	vec2f midAngPoint = midcpy.sub(circleCenter);
+			//	vec2f endAngPoint = end.cpy().sub(circleCenter);
+			//
+			//	startAng = atan2(startAngPoint.y, startAngPoint.x);
+			//	float midAng = atan2(midAngPoint.y, midAngPoint.x);
+			//	endAng = atan2(endAngPoint.y, endAngPoint.x);
+			//
+			//	float radius = startAngPoint.len();
+			//
+			//	if (!isIn(startAng, midAng, endAng)) {
+			//		if (abs(startAng + TWO_PI - endAng) < TWO_PI && isIn(startAng + TWO_PI, midAng, endAng))
+			//			startAng += TWO_PI;
+			//		else if (abs(startAng - (endAng + TWO_PI)) < TWO_PI && isIn(startAng, midAng, endAng + TWO_PI))
+			//			endAng += TWO_PI;
+			//		else if (abs(startAng - TWO_PI - endAng) < TWO_PI && isIn(startAng - TWO_PI, midAng, endAng))
+			//			startAng -= TWO_PI;
+			//		else if (abs(startAng - (endAng - TWO_PI)) < TWO_PI && isIn(startAng, midAng, endAng - TWO_PI))
+			//			endAng -= TWO_PI;
+			//		else
+			//			cout << "Angle error: " << startAng << " " << midAng << " " << endAng << endl;
+			//	}
+			//
+			//	float arcAng = PixelLength / radius;
+			//	endAng = endAng > startAng ? startAng + arcAng : startAng - arcAng;
+			//	PCenter = circleCenter;
+			//	PRadius = radius;
+			//}
 			else {
 				sliderType = 'B';
 				goto bezier;
