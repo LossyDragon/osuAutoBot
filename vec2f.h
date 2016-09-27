@@ -37,7 +37,9 @@ public:
 		return *this;
 	}
 	vec2f cpy() const
-	{ return vec2f(x, y); }
+	{
+		return vec2f(x, y);
+	}
 
 	vec2f add(float nx, float ny) {
 		x += nx;
@@ -45,7 +47,13 @@ public:
 		return *this;
 	}
 	float len() const
-	{ return sqrtf(x * x + y * y); }
+	{
+		return sqrtf(x * x + y * y);
+	}
+	float LengthSquared() const
+	{
+		return x*x + y*y;
+	}
 
 	vec2f operator+=(const vec2f& alt) {
 		x += alt.x;
@@ -62,9 +70,9 @@ inline vec2f rotate(vec2f point, float angle) {
 }
 
 inline vec2f operator + (vec2f a, vec2f b)
-	{
-		return vec2f(a.x + b.x, a.y + b.y);
-	}
+{
+	return vec2f(a.x + b.x, a.y + b.y);
+}
 inline vec2f operator - (vec2f a, vec2f b) {
 	return vec2f(a.x - b.x, a.y - b.y);
 }
@@ -72,7 +80,6 @@ inline vec2f operator - (vec2f a, vec2f b) {
 inline vec2f operator * (float s, vec2f a) {
 	return vec2f(s * a.x, s * a.y);
 }
-
 inline vec2f operator * (vec2f a, float s) {
 	return vec2f(s * a.x, s * a.y);
 }

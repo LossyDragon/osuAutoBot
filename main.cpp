@@ -16,10 +16,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-//Defines.
-#define _USE_MATH_DEFINES
-
 //Includes.
+#define _USE_MATH_DEFINES
 #include <cmath>
 #include <iostream>
 #include "HitObject.h"
@@ -30,23 +28,31 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <psapi.h>
 #include <limits>
 
-//Variables.
+//Vectors.
 vector<TimingPoint> TimingPoints;
 vector<HitObject> HitObjects;
 
-float StackLeniency;
-float CircleSize;
-float SliderMultiplier;
-float XMultiplier, YMultiplier;
-float StackOffset;
-float OverallDifficulty;
-
+//Variables.
 int SongTime;
+int OsuWindowX, OsuWindowY;
 bool songStarted;
+float CircleSize;
+float StackOffset;
+float StackLeniency;
+float SliderMultiplier;
+float OverallDifficulty;
+float XMultiplier, YMultiplier;
+string cmdName;						//String to set Console Title.
+
+//winAPI stuff
 HWND OsuWindow;
 DWORD OsuProcessID;
 LPVOID TimeAdress;
 HANDLE OsuProcessHandle;
+
+///Temporary warning Disable.
+#pragma warning (disable:4312)
+
 ///###################################################################################
 
 //Get Base Address.
@@ -70,7 +76,7 @@ DWORD GetMemorySize(HANDLE hProc)
 //Find Pattern.
 DWORD FindPattern(HANDLE ProcessHandle, const byte Signature[], unsigned const int ByteCount) {
 	const static unsigned int Mult = 4096;
-	const static unsigned int StartAdress = reinterpret_cast<INT>(GetBaseAddress(OsuProcessHandle));
+	const static unsigned int StartAdress = reinterpret_cast<LONG_PTR>(GetBaseAddress(OsuProcessHandle));
 	const static unsigned int EndAdress = StartAdress + GetMemorySize(OsuProcessHandle);
 	static bool Hit;
 
@@ -92,6 +98,29 @@ DWORD FindPattern(HANDLE ProcessHandle, const byte Signature[], unsigned const i
 	return 0;
 }
 
+//Function to get P.I.D. for osu.exe
+DWORD getProcessID()
+{
+	auto hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	if (hSnapshot == INVALID_HANDLE_VALUE)
+		return 0;
+	PROCESSENTRY32 pe;
+	pe.dwSize = sizeof pe;
+	if (Process32First(hSnapshot, &pe))
+	{
+		do
+		{
+			if (string(pe.szExeFile) == "osu!.exe")
+			{
+				CloseHandle(hSnapshot);
+				return pe.th32ProcessID;
+			}
+		} while (Process32Next(hSnapshot, &pe));
+	}
+	CloseHandle(hSnapshot);
+	return 0;
+}
+
 //Time Thread.
 void timeThread()
 {
@@ -99,179 +128,146 @@ void timeThread()
 	while (true)
 	{
 		ReadProcessMemory(OsuProcessHandle, TimeAdress, &SongTime, 4, nullptr);
-		this_thread::sleep_for(chrono::milliseconds(1));
+		this_thread::sleep_for(chrono::microseconds(100));
 	}
 }
 
-int OsuWindowX, OsuWindowY;
+//Function to press the keys.
+void keyPresses(bool key1, bool key2, bool key3, bool key4) {
 
-float sqrt2 = sqrtf(2.0f) / 2.0f;
+	bool k1 = key1, k2 = key2;
+	bool k3 = key3, k4 = key4;
 
-//Not Sure what this is, yet.
-float normalize_angle(const float &a)
-{
-	float res = a;
-	if (res < float(-M_PI)) res += TWO_PI;
-	else if (res > float(M_PI)) res -= TWO_PI;
-	return res;
-}
-
-//Not Sure what this is, yet.
-float GetDelta(float angle)
-{
-	float si = abs(sinf(angle));
-	if (si > sqrt2) { si = abs(sinf(angle - float(M_PI_2))); }
-	return (1.0f - sqrt2) * si;
-}
-
-//Spinner Circle Function.
-void SpinerCircleMove(const HitObject* spiner)
-{
-	vec2f center{
-		spiner->getStartPosition().x * XMultiplier + OsuWindowX,
-		spiner->getStartPosition().y * YMultiplier + OsuWindowY
-	};
-	auto angle = static_cast<float>((M_PI));
-	float R = 70.0f;
-
-	//Setup _another_ generic keyboard, secondary click
-	cout << "Spinner Click!" << endl;
-	INPUT key;
-	key.type = INPUT_KEYBOARD;
-	key.ki.wScan = 0;
-	key.ki.time = 0;
-	key.ki.dwExtraInfo = 0;
-
-	// Press the X key
-	key.ki.wVk = 0x58;
-	key.ki.dwFlags = 0;
-	SendInput(1, &key, sizeof(INPUT));
-
-	while (SongTime <= spiner->getEndTime() && songStarted)
-	{
-		//angle = normalize_angle(angle);
-		float r = R * (sqrt2 + GetDelta(angle));
-		int x = static_cast<int>(r * cos(angle) + center.x);
-		int y = static_cast<int>(r * sin(angle) + center.y);
-		SetCursorPos(x, y);
-		angle -= 0.056f;
-		this_thread::sleep_for(chrono::milliseconds(1));
-	}
-
-	// Release the x key
-	key.ki.dwFlags = KEYEVENTF_KEYUP;
-	SendInput(1, &key, sizeof(INPUT));
-}
-
-//Slider Function
-void SliderMove(HitObject* slider)
-{
-	//cout << "Inslide Slider, weee!\n";
-	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
-
-	//Setup _another_ generic keyboard, secondary click
-	INPUT key;
-	key.type = INPUT_KEYBOARD;
-	key.ki.wScan = 0;
-	key.ki.time = 0;
-	key.ki.dwExtraInfo = 0;
-
-	// Press the X key
-	key.ki.wVk = 0x58;
-	key.ki.dwFlags = 0;
-	SendInput(1, &key, sizeof(INPUT));
-
-	int xy = 0;
-
-	while (SongTime <= slider->getEndTime() && songStarted)
-	{
-		auto t = static_cast<float>(SongTime - slider->getStartTime()) / static_cast<float>(slider->getSliderTime());
-		auto pos = slider->getPointByT(t);
-		SetCursorPos(static_cast<int>((pos.x - slider->getStack() * StackOffset)* XMultiplier) + OsuWindowX, static_cast<int>((pos.y - slider->getStack() * StackOffset) * YMultiplier) + OsuWindowY);
-
-
-		//Debug
-		if (xy == 0){
-			cout << "Slider X: " << pos.x << ", Y: " << pos.y << endl;
-			xy = 1;
-		}
-
-		this_thread::sleep_for(chrono::milliseconds(1));
-	}
-
-	xy = 0;
-
-	// Release the x key
-	key.ki.dwFlags = KEYEVENTF_KEYUP;
-	SendInput(1, &key, sizeof(INPUT));
-}
-
-float ang = float(M_PI_2);
-
-///###################################################################################
-///Below are the different types of dances.
-///###################################################################################
-
-//Current AutoPilot we're working on. 
-void MathMoveTo(const HitObject* object)
-{
 	// Generic Keyboard Setup
-	//cout << "Click!" << endl;
-	INPUT key;
-	key.type = INPUT_KEYBOARD;
-	key.ki.wScan = 0;
-	key.ki.time = 0;
-	key.ki.dwExtraInfo = 0;
+	INPUT keys1, keys2, keys3, keys4;
 
-	POINT p;
-	GetCursorPos(&p);
-	auto p0 = vec2f(static_cast<float>(p.x), static_cast<float>(p.y));
-	auto p1 = vec2f((object->getStartPosition().x - StackOffset * object->getStack()) * XMultiplier + OsuWindowX, (object->getStartPosition().y - StackOffset * object->getStack())  * YMultiplier + OsuWindowY);
-	auto dt = static_cast<float>(object->getStartTime() - SongTime);
+	keys1.type = INPUT_KEYBOARD;
+	keys1.ki.wScan = 0;
+	keys1.ki.time = 0;
+	keys1.ki.dwExtraInfo = 0;
+
+	keys2.type = INPUT_KEYBOARD;
+	keys2.ki.wScan = 0;
+	keys2.ki.time = 0;
+	keys2.ki.dwExtraInfo = 0;
+
+	keys3.type = INPUT_KEYBOARD;
+	keys3.ki.wScan = 0;
+	keys3.ki.time = 0;
+	keys3.ki.dwExtraInfo = 0;
+
+	keys4.type = INPUT_KEYBOARD;
+	keys4.ki.wScan = 0;
+	keys4.ki.time = 0;
+	keys4.ki.dwExtraInfo = 0;
+		
+	//Key 1 Press
+	if (k1 == true)
+	{
+		cout << "Hit! Z \n";
+		keys1.ki.wVk = 0x5A; // Z
+		keys1.ki.dwFlags = 0;
+		SendInput(1, &keys1, sizeof(INPUT));
+		this_thread::sleep_for(chrono::microseconds(1000));
+	}
+	//Key 2 Press
+	if (k2 == true)
+	{
+		cout << "Hit! X \n";
+		keys2.ki.wVk = 0x58; // X
+		keys2.ki.dwFlags = 0;
+		SendInput(1, &keys2, sizeof(INPUT));
+		this_thread::sleep_for(chrono::microseconds(1000));
+	}
+	//Key 3 Press
+	if (k3 == true)
+	{
+		cout << "Hit! C \n";
+		keys3.ki.wVk = 0x43; // C
+		keys3.ki.dwFlags = 0;
+		SendInput(1, &keys3, sizeof(INPUT));
+		this_thread::sleep_for(chrono::microseconds(1000));
+	}
+	//Key 4 press
+	if (k4 == true)
+	{
+		cout << "Hit! V \n";
+		keys4.ki.wVk = 0x56; // V
+		keys4.ki.dwFlags = 0;
+		SendInput(1, &keys4, sizeof(INPUT));
+		this_thread::sleep_for(chrono::microseconds(1000));
+	}
+
+	//Sleeo for 1000 MicroSeconds
+	this_thread::sleep_for(chrono::microseconds(1000));
+	
+	//Release the keyboard keys.
+	keys1.ki.dwFlags = KEYEVENTF_KEYUP;
+	SendInput(1, &keys1, sizeof(INPUT));
+
+	keys2.ki.dwFlags = KEYEVENTF_KEYUP;
+	SendInput(1, &keys2, sizeof(INPUT));
+
+	keys3.ki.dwFlags = KEYEVENTF_KEYUP;
+	SendInput(1, &keys3, sizeof(INPUT));
+
+	keys4.ki.dwFlags = KEYEVENTF_KEYUP;
+	SendInput(1, &keys4, sizeof(INPUT));
+
+	k1, k2, k3, k4 = false;
+}
+
+//Function that handles key data to keypresses. 
+void ManiaKeys(const HitObject* object)
+{
+	//Output
+	//cout << "Start Pos: " << object->getStartPosition().x << ", Start Time: " << object->getStartTime() << endl;
+	
 	while (SongTime < object->getStartTime() && songStarted)
 	{
-		//Moves cursor from note to note, commenting out will result in instant snapping
-		auto t = (dt - static_cast<float>(object->getStartTime() - SongTime)) / dt;
-		auto B = p0 + t*(p1 - p0);
-		SetCursorPos(static_cast<int>(B.x), static_cast<int>(B.y));
-		this_thread::sleep_for(chrono::milliseconds(1));
+		auto a = static_cast<int>(object->getStartTime());
+
+		//Bools for applicable keypresses
+		bool key1 = false, key2 = false, key3 = false , key4 = false;
+
+		//Key 1 Hit.
+		if ((object->getStartPosition().x == 64) && (SongTime+10 >= a)){
+			key1 = true;
+		}
+		//Key 2 Hit.
+		if ((object->getStartPosition().x == 192) && (SongTime + 10 >= a)) {
+			key2 = true;
+		}
+		//Key 3 Hit.
+		if ((object->getStartPosition().x == 320) && (SongTime + 10 >= a)) {
+			key3 = true;
+		}
+		//Key 4 Hit.
+		if ((object->getStartPosition().x == 448) && (SongTime + 10 >= a)) {
+			key4 = true;
+		}
+
+		//Sleep for 100 MicroSeconds.
+		this_thread::sleep_for(chrono::microseconds(100));
+
+		//Send keys off to another function.
+		keyPresses(key1, key2, key3, key4);
+
 	}
-	SetCursorPos(static_cast<int>(p1.x), static_cast<int>(p1.y));
-
-	//Press the Z key
-	key.ki.wVk = 0x5A;
-	key.ki.dwFlags = 0;
-	SendInput(1, &key, sizeof(INPUT));
-	///Sleep msec changes the time on how long the key should be held.
-	this_thread::sleep_for(chrono::milliseconds(5));
-
-	//Release the Z key
-	key.ki.dwFlags = KEYEVENTF_KEYUP;
-	SendInput(1, &key, sizeof(INPUT));
 
 }
 
-///###################################################################################
-///Above are the different types of dances.
-///###################################################################################
-
-//Auto Thread... Where you change your 'Dance' function.
+//Auto Thread.
 void AutoThread()
 {
 	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
 	for (auto Hit : HitObjects)
 	{
-		MathMoveTo(&Hit);
-		if (Hit.itSpinner())
-		{
-			SpinerCircleMove(&Hit);
-		}
-		if (Hit.itSlider())
-		{
-			SliderMove(&Hit);
-		}
+		ManiaKeys(&Hit);
+
 		if (!songStarted)
 		{
+			cout << "Song not started or was terminated!\n";
 			return;
 		}
 	}
@@ -280,8 +276,9 @@ void AutoThread()
 //Check game (Not fully understood yet).
 void gameCheckerThread()
 {
-	//You can Set a console title here.
-	SetConsoleTitle("");
+	LPSTR s = const_cast<char *>(cmdName.c_str());	//Convert string to LPSTR for SetConsoleTitle().
+	SetConsoleTitle(s);	//Set window title of the song's name
+
 	while (true)
 	{
 		RECT rect;
@@ -290,8 +287,6 @@ void gameCheckerThread()
 		ClientToScreen(OsuWindow, &p);
 		int x = min(rect.right, GetSystemMetrics(SM_CXSCREEN));
 		int y = min(rect.bottom, GetSystemMetrics(SM_CYSCREEN));
-		//cout << x << ' ' << y << endl;
-		//cout << x << ' ' << y << endl;
 		int swidth = x;
 		int sheight = y;
 		if (swidth * 3 > sheight * 4) {
@@ -329,40 +324,17 @@ void gameCheckerThread()
 			}
 			songStarted = false;
 		}
-		Sleep(100);
+		this_thread::sleep_for(chrono::microseconds(100));
 	}
-}
-
-//Get process ID from osu.exe
-DWORD getProcessID()
-{
-	auto hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	if (hSnapshot == INVALID_HANDLE_VALUE)
-		return 0;
-	PROCESSENTRY32 pe;
-	pe.dwSize = sizeof pe;
-	if (Process32First(hSnapshot, &pe))
-	{
-		do
-		{
-			if (string(pe.szExeFile) == "osu!.exe")
-			{
-				CloseHandle(hSnapshot);
-				return pe.th32ProcessID;
-			}
-		} while (Process32Next(hSnapshot, &pe));
-	}
-	CloseHandle(hSnapshot);
-	return 0;
 }
 
 //Check game
 void checkGame()
 {
-	//rescan:
-	cout << "Search \"osu!\" window" << endl;
-	//For Stable version only.
+	cout << "Searching \"osu!\" window" << endl;
+
 	OsuWindow = FindWindowA(nullptr, TEXT("osu!"));
+
 	if (OsuWindow == nullptr) {
 		cout << "Please run osu!" << endl;
 		while (OsuWindow == nullptr) {
@@ -371,12 +343,15 @@ void checkGame()
 		}
 	}
 
+	//Output
 	cout << "Osu! found" << endl;
+
 	OsuProcessID = getProcessID();
 	OsuProcessHandle = OpenProcess(PROCESS_ALL_ACCESS, false, OsuProcessID);
 	BYTE Pattern[] = { 0xA3, 0x00, 0x00, 0x00, 0x00, 0xEB, 0x00, 0xA1, 0x00, 0x00, 0x00, 0x00, 0xA3 };
 	const int PatternLength = sizeof Pattern / sizeof BYTE;
 	DWORD ScanAdress = FindPattern(OsuProcessHandle, Pattern, PatternLength) + 1;
+
 	if (ScanAdress == 1) {
 		TimeAdress = nullptr;
 		cout << "Error in \"Timer Find\"" << endl;
@@ -384,45 +359,43 @@ void checkGame()
 		Sleep(1500); //1.5 sec delay to recursion.
 		checkGame();
 	}
+
 	int timerr;
 	ReadProcessMemory(OsuProcessHandle, reinterpret_cast<LPCVOID>(ScanAdress), &timerr, 4, nullptr);
 	TimeAdress = reinterpret_cast<LPVOID>(timerr + 0xC);
+	cout << timerr << endl;
+
+	//Output
 	cout << "Timer address: " << TimeAdress << endl;
 	cout << "Start threads" << endl;
+
+	//Send off to threads.
 	thread game(gameCheckerThread);
 	game.detach();
 	thread Timer(timeThread);
 	Timer.detach();
 }
 
-//Map Difficulty
-float mapDifficultyRange(float difficulty, float min, float mid, float max)
-{
-	if (difficulty > 5.0f)
-		return mid + (max - mid)*(difficulty - 5.0f) / 5.0f;
-	if (difficulty < 5.0f)
-		return mid - (mid - min)*(5.0f - difficulty) / 5.0f;
-	return mid;
-}
-
-//Parse-Load song data.
+//Load song data into variables/vectors.
 void ParseSong(string path)
 {
 	ifstream t(path);
-	bool General = false;
-	bool Difficulty = false;
-	bool Timing = false;
-	bool Hits = false;
+	string artist, title;
+	bool General = false, Difficulty = false;
+	bool Timing = false, Hits = false;
+	bool Metadata = false; 
+
 	while (t)
 	{
 		string str;
 		getline(t, str);
-		if (str.find("[General]") != string::npos)
-		{
+
+		//Find [General]
+		if (str.find("[General]") != string::npos)	{
 			General = true;
 		}
-		else if (General)
-		{
+		else if (General){
+			//Find StachLeniencey
 			if (str.find("StackLeniency") != string::npos)
 			{
 				StackLeniency = stof(str.substr(str.find(':') + 1));
@@ -432,12 +405,32 @@ void ParseSong(string path)
 				General = false;
 			}
 		}
-		else if (str.find("[Difficulty]") != string::npos)
+
+		//Find [Metadata]
+		else if(str.find("[Metadata]") != string::npos)
 		{
+			Metadata = true;
+		}
+		else if (Metadata) {
+			//Find Artist Name.
+			if (str.find("Artist") != string::npos) {
+				artist = str.substr(str.find(':') + 1);
+			}
+			//Find Title Name.
+			else if (str.find("Title") != string::npos) {
+				title = str.substr(str.find(':') + 1);
+			}
+			else if (str.find(':') == string::npos)
+			{
+				Metadata = false;
+			}
+		}
+
+		//Find [Difficulty]
+		else if (str.find("[Difficulty]") != string::npos){
 			Difficulty = true;
 		}
-		else if (Difficulty)
-		{
+		else if (Difficulty){
 			if (str.find("OverallDifficulty:") != string::npos) {
 				OverallDifficulty = stof(str.substr(str.find(':') + 1));
 			}
@@ -454,22 +447,22 @@ void ParseSong(string path)
 				Difficulty = false;
 			}
 		}
-		else if (str.find("[TimingPoints]") != string::npos)
-		{
+
+		//Find [TimingPoints]
+		else if (str.find("[TimingPoints]") != string::npos) {
 			Timing = true;
 		}
-		else if (Timing)
-		{
-			if (str.find(',') == string::npos)
-			{
+		else if (Timing) {
+			if (str.find(',') == string::npos){
 				Timing = false;
 			}
-			else
-			{
+			else {
 				TimingPoint TP = TimingPoint(str);
 				TimingPoints.push_back(TP);
 			}
 		}
+		
+		//Find [HitObjects]
 		else if (str.find("[HitObjects]") != string::npos)
 		{
 			Hits = true;
@@ -487,63 +480,19 @@ void ParseSong(string path)
 			}
 		}
 	}
+
+	//Close file, we don't need it anymore.
 	t.close();
-	float PreEmpt = mapDifficultyRange(OverallDifficulty, 1800.0f, 1200.0f, 450.0f);
+
+	//Combine artist and title for a title.
+	cmdName = artist + " - " + title;
+
+	//float PreEmpt = mapDifficultyRange(OverallDifficulty, 1800.0f, 1200.0f, 450.0f);
 	StackOffset = (512.0f / 16.0f) * (1.0f - 0.7f * (CircleSize - 5.0f) / 5.0f) / 10.0f;
-	cout << StackOffset << endl;
-	//for (int i = HitObjects.size() - 1; i > 0; i--) {
-	//	HitObject* hitObjectI = &HitObjects[i];
-	//	if (hitObjectI->getStack() != 0 || hitObjectI->itSpinner()) {
-	//		continue;
-	//	}
 
-	//	for (int n = i - 1; n >= 0; n--) {
-	//		HitObject* hitObjectN = &HitObjects[n];
-	//		if (hitObjectN->itSpinner()) {
-	//			continue;
-	//		}
-	//		// check if in range stack calculation
-	//		float timeI = hitObjectI->startTime - PreEmpt * StackLeniency;
-	//		float timeN = float(hitObjectN->itSlider() ? HitObjects[n].endTime : hitObjectN->startTime);
-	//		if (timeI > timeN)
-	//			break;
-	//		
-	//		if (hitObjectN->itSlider()) {
-	//			vec2f p1 = HitObjects[i].getStartPosition();
-	//			vec2f p2 = HitObjects[n].getEndPos();
-	//			float distance = ::distance(p1, p2);
+	///Dont need to display this.
+	//cout << StackOffset << endl;
 
-	//			// check if hit object part of this stack
-	//			if (StackLeniency > 0.0f) {
-	//				if (distance < circleRadius) {
-	//					int offset = hitObjectI->getStack() - hitObjectN->getStack() + 1;
-	//					for (int j = n + 1; j <= i; j++) {
-	//						HitObject* hitObjectJ = &HitObjects[j];
-	//						p1 = hitObjectJ->getStartPosition();
-	//						distance = ::distance(p1, p2);
-	//						//cout << offset;
-	//						// hit object below slider end
-	//						if (distance < circleRadius)
-	//							hitObjectJ->setStack(hitObjectJ->getStack() - offset);
-	//					}
-	//					break;  // slider end always start of the stack: reset calculation
-	//				}
-	//			}
-	//			else
-	//			{
-	//				break;
-	//			}
-	//		}
-	//		auto distance = ::distance(
-	//			hitObjectI->getStartPosition(),
-	//			hitObjectN->getStartPosition()
-	//			);
-	//		if (distance < StackLeniency) {
-	//			hitObjectN->setStack(hitObjectI->getStack() + 1);
-	//			hitObjectI = hitObjectN;
-	//		}
-	//	}
-	//}
 	const int STACK_LENIENCE = 3;
 	for (int i = HitObjects.size() - 1; i > 0; i--)
 	{
@@ -576,10 +525,10 @@ void ParseSong(string path)
 				if (objectN->itSpinner()) continue;
 
 				//HitObjectSpannable spanN = objectN as HitObjectSpannable;
-				float timeI = objectI->startTime - PreEmpt * StackLeniency;
+				//float timeI = objectI->startTime - PreEmpt * StackLeniency;
 				float timeN = static_cast<float>(objectN->itSlider() ? objectN->endTime : objectN->startTime);
-				if (timeI > timeN)
-					break;
+				//if (timeI > timeN)
+				//	break;
 
 				/* This is a special case where hticircles are moved DOWN and RIGHT (negative stacking) if they are under the *last* slider in a stacked pattern.
 				*    o==o <- slider is at original location
@@ -622,10 +571,8 @@ void ParseSong(string path)
 
 				if (objectN->itSpinner()) continue;
 
-				//HitObjectSpannable spanN = objectN as HitObjectSpannable;
-
-				if (objectI->startTime - (PreEmpt * StackLeniency) > objectN->startTime)
-					break;
+				//if (objectI->startTime - (PreEmpt * StackLeniency) > objectN->startTime)
+				//	break;
 
 				if (distance((objectN->endTime != 0 ? objectN->getEndPos() : objectN->startPosition), objectI->startPosition) < STACK_LENIENCE)
 				{
@@ -637,14 +584,12 @@ void ParseSong(string path)
 	}
 }
 
-//Open Song file.
-//#include <atlstr.h>
+//Opens Dialog to choose .osu file.
 void OpenSong()
 {
-	//CString fileBuf;
-	OPENFILENAME ofn;       // common dialog box structure
-	char szFile[260];       // buffer for file name
-	HWND hwnd = nullptr;              // owner window
+	OPENFILENAME ofn;				// common dialog box structure
+	char szFile[260];				// buffer for file name
+	HWND hwnd = nullptr;            // owner window
 	ZeroMemory(&ofn, sizeof ofn);
 	ofn.lStructSize = sizeof ofn;
 	ofn.hwndOwner = hwnd;
@@ -655,11 +600,9 @@ void OpenSong()
 	ofn.nFilterIndex = 1;
 	ofn.lpstrFileTitle = nullptr;
 	ofn.nMaxFileTitle = 0;
-	//fileBuf = "%AppData%\\Local\\osu!\\Songs";
 	ofn.lpstrInitialDir = nullptr;
 	ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
 
-	// Display the Open dialog box.
 	if (GetOpenFileName(&ofn)) {
 		ParseSong(ofn.lpstrFile);
 	}
@@ -668,38 +611,32 @@ void OpenSong()
 //Attempt to flush variables, so that the program shouldn't be restarted.
 void flushMe()
 {
-	TimingPoints.clear();
-	HitObjects.clear();
-	StackLeniency = NULL;
-	CircleSize = NULL;
-	SliderMultiplier = NULL;
-	XMultiplier, YMultiplier = NULL;
-	StackOffset = NULL;
-	OverallDifficulty = NULL;
-	SongTime = NULL;
-	songStarted = NULL;
+	TimingPoints.clear();				//Vector Clear.
+	HitObjects.clear();					//Vector Clear. 
+	SongTime = NULL;					//
+	CircleSize = NULL;					//
+	StackOffset = NULL;					//
+	songStarted = NULL;					//
+	StackLeniency = NULL;				//
+	SliderMultiplier = NULL;			//
+	OverallDifficulty = NULL;			//
+	XMultiplier, YMultiplier = NULL;	//
 
 }
 
 //Main Function, the Begining.
-#include <ostream>
 int main()
 {
-	//TimingPoint timingTest = TimingPoint("6590,461.538461538462,4,2,1,6,1,0");
-	//AllocConsole();
-	//SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
-	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
 	redo:
-		OpenSong();
-		checkGame();
-		getchar();
-		flushMe();
+		OpenSong();		//Open Dialog to choose song.
+		checkGame();	//Check for osu! application.
+		getchar();		//Wait for user to press Enter to restart program.
+		flushMe();		//Flush variables, soft restart.
 	goto redo;
 	return 0;
 }
 
-
-//TODO: Changle the angle of note-2-note (Dance Function).
-//TODO: Fix rare slider bug going the wrong way. (P type slider?).
-//TODO: Double mouse tapping (MoveTo Function).
-//TODO: X64 builds have cast conversion warnings. 
+//TODO: 1. Stop program if osu! loses focus.
+//TODO: 2. Give program more FPS, or find a way for more CPU.
+//TODO: 3. Handles multiple keypresses better. 
+//TODO: 4. Clean unused code for this version of bot. (50% done)
