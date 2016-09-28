@@ -135,65 +135,105 @@ void timeThread()
 	}
 }
 
-//Function to press the keys.
-void keyPresses(bool key1, bool key2, bool key3, bool key4) {
+//TEST-------------------------------
+void k1() {
 
-	bool k1 = key1, k2 = key2;
-	bool k3 = key3, k4 = key4;
-	
-	//Key 1 Press
-	if (k1 == true)
-	{
-		printf("Hit! Z \n");
-		keys1.ki.wVk = 0x5A; // Z
-		keys1.ki.dwFlags = 0;
-		SendInput(1, &keys1, sizeof(INPUT));
-		this_thread::sleep_for(chrono::microseconds(1000));
-	}
-
-	//Release the keyboard keys.
+	printf("Hit! Z \n");
+	keys1.ki.wVk = 0x5A; // Z
+	keys1.ki.dwFlags = 0;
+	SendInput(1, &keys1, sizeof(INPUT));
+	this_thread::sleep_for(chrono::microseconds(600));
 	keys1.ki.dwFlags = KEYEVENTF_KEYUP;
 	SendInput(1, &keys1, sizeof(INPUT));
+}
+void k2() {
 
-	//Key 2 Press
-	if (k2 == true)
-	{
-		printf("Hit! X \n");
-		keys2.ki.wVk = 0x58; // X
-		keys2.ki.dwFlags = 0;
-		SendInput(1, &keys2, sizeof(INPUT));
-		this_thread::sleep_for(chrono::microseconds(1000));
-	}
-
+	printf("Hit! X \n");
+	keys2.ki.wVk = 0x58; // X
+	keys2.ki.dwFlags = 0;
+	SendInput(1, &keys2, sizeof(INPUT));
+	this_thread::sleep_for(chrono::microseconds(600));
 	keys2.ki.dwFlags = KEYEVENTF_KEYUP;
 	SendInput(1, &keys2, sizeof(INPUT));
-
-	//Key 3 Press
-	if (k3 == true)
-	{
-		printf("Hit! C \n");
-		keys3.ki.wVk = 0x43; // C
-		keys3.ki.dwFlags = 0;
-		SendInput(1, &keys3, sizeof(INPUT));
-		this_thread::sleep_for(chrono::microseconds(1000));
-	}
-
+}
+void k3() {
+	printf("Hit! C \n");
+	keys3.ki.wVk = 0x43; // C
+	keys3.ki.dwFlags = 0;
+	SendInput(1, &keys3, sizeof(INPUT));
+	this_thread::sleep_for(chrono::microseconds(600));
 	keys3.ki.dwFlags = KEYEVENTF_KEYUP;
 	SendInput(1, &keys3, sizeof(INPUT));
-
-	//Key 4 press
-	if (k4 == true)
-	{
-		printf("Hit! V \n");
-		keys4.ki.wVk = 0x56; // V
-		keys4.ki.dwFlags = 0;
-		SendInput(1, &keys4, sizeof(INPUT));
-		this_thread::sleep_for(chrono::microseconds(1000));
-	}
-
+}
+void k4() {
+	printf("Hit! V \n");
+	keys4.ki.wVk = 0x56; // V
+	keys4.ki.dwFlags = 0;
+	SendInput(1, &keys4, sizeof(INPUT));
+	this_thread::sleep_for(chrono::microseconds(600));
 	keys4.ki.dwFlags = KEYEVENTF_KEYUP;
 	SendInput(1, &keys4, sizeof(INPUT));
 }
+
+//Function to press the keys.
+///void keyPresses(bool key1, bool key2, bool key3, bool key4) {
+///
+///	bool k1 = key1, k2 = key2;
+///	bool k3 = key3, k4 = key4;
+///	
+///	//Key 1 Press
+///	if (k1 == true)
+///	{
+///		printf("Hit! Z \n");
+///		keys1.ki.wVk = 0x5A; // Z
+///		keys1.ki.dwFlags = 0;
+///		SendInput(1, &keys1, sizeof(INPUT));
+///		this_thread::sleep_for(chrono::microseconds(1000));
+///	}
+///
+///	//Release the keyboard keys.
+///	keys1.ki.dwFlags = KEYEVENTF_KEYUP;
+///	SendInput(1, &keys1, sizeof(INPUT));
+///
+///	//Key 2 Press
+///	if (k2 == true)
+///	{
+///		printf("Hit! X \n");
+///		keys2.ki.wVk = 0x58; // X
+///		keys2.ki.dwFlags = 0;
+///		SendInput(1, &keys2, sizeof(INPUT));
+///		this_thread::sleep_for(chrono::microseconds(1000));
+///	}
+///
+///	keys2.ki.dwFlags = KEYEVENTF_KEYUP;
+///	SendInput(1, &keys2, sizeof(INPUT));
+///
+///	//Key 3 Press
+///	if (k3 == true)
+///	{
+///		printf("Hit! C \n");
+///		keys3.ki.wVk = 0x43; // C
+///		keys3.ki.dwFlags = 0;
+///		SendInput(1, &keys3, sizeof(INPUT));
+///		this_thread::sleep_for(chrono::microseconds(1000));
+///	}
+///
+///	keys3.ki.dwFlags = KEYEVENTF_KEYUP;
+///	SendInput(1, &keys3, sizeof(INPUT));
+///
+///	//Key 4 press
+///	if (k4 == true)
+///	{
+///		printf("Hit! V \n");
+///		keys4.ki.wVk = 0x56; // V
+///		keys4.ki.dwFlags = 0;
+///		SendInput(1, &keys4, sizeof(INPUT));
+///		this_thread::sleep_for(chrono::microseconds(1000));
+///	}
+///
+///	keys4.ki.dwFlags = KEYEVENTF_KEYUP;
+///	SendInput(1, &keys4, sizeof(INPUT));
+///}
 
 //Function that handles key data to keypresses. 
 void ManiaKeys(const HitObject* object)
@@ -206,10 +246,10 @@ void ManiaKeys(const HitObject* object)
 		auto a = static_cast<int>(object->getStartTime());
 
 		//Bools for applicable keypresses
-		bool key1 = false, key2 = false, key3 = false , key4 = false;
+		bool key1 = false, key2 = false, key3 = false, key4 = false;
 
 		//Key 1 Hit.
-		if ((object->getStartPosition().x == 64) && (SongTime + 10 >= a)){
+		if ((object->getStartPosition().x == 64) && (SongTime + 10 >= a)) {
 			key1 = true;
 		}
 		//Key 2 Hit.
@@ -229,9 +269,26 @@ void ManiaKeys(const HitObject* object)
 		this_thread::sleep_for(chrono::microseconds(1));
 
 		//Send keys off to another function.
-		keyPresses(key1, key2, key3, key4);
-		
+		//keyPresses(key1, key2, key3, key4);
 
+
+		//MULTI THREAD?!~
+		if (key1) {
+			thread keyB1(k1);
+			keyB1.detach();
+		}
+		if (key2) {
+			thread keyB2(k2);
+			keyB2.detach();
+		}
+		if (key3) {
+			thread keyB3(k3);
+			keyB3.detach();
+		}
+		if (key4){
+			thread keyB4(k4);
+			keyB4.detach();
+		}
 	}
 
 }
@@ -292,13 +349,7 @@ void gameCheckerThread()
 			if (!songStarted)
 			{
 				songStarted = true;
-				//thread Auto(AutoThread);
-				//Auto.join();
-				CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)AutoThread, 0, 0, NULL);
-
-
-
-				
+				CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)AutoThread, 0, 0, NULL);		
 			}
 		}
 		else

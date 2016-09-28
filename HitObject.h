@@ -130,9 +130,9 @@ public:
 		return (hitType & 8) > 0;
 	}
 
-	int getStartTime() const
+	int getStartTime() const //Delay, begining of song.
 	{
-		return startTime;// -8;
+		return startTime -8;
 	}
 
 	int getEndTime() const
