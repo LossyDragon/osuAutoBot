@@ -112,6 +112,7 @@
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <UACExecutionLevel>AsInvoker</UACExecutionLevel>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -119,6 +120,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="HitObject.h" />
+    <ClInclude Include="rtprio.h" />
     <ClInclude Include="segment.h" />
     <ClInclude Include="Split.h" />
     <ClInclude Include="TimingPoint.h" />

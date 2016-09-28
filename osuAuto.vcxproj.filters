@@ -35,6 +35,9 @@
     <ClInclude Include="vec2f.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="rtprio.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md">

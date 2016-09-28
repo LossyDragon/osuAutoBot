@@ -28,6 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <psapi.h>
 #include <limits>
 
+
 //Vectors.
 vector<TimingPoint> TimingPoints;
 vector<HitObject> HitObjects;
@@ -50,10 +51,12 @@ DWORD OsuProcessID;
 LPVOID TimeAdress;
 HANDLE OsuProcessHandle;
 
+//Keyboard things
+INPUT keys1, keys2, keys3, keys4;
+
 ///Temporary warning Disable.
 #pragma warning (disable:4312)
-
-///###################################################################################
+#pragma optimize("", on)
 
 //Get Base Address.
 LPVOID GetBaseAddress(HANDLE hProc)
@@ -137,84 +140,59 @@ void keyPresses(bool key1, bool key2, bool key3, bool key4) {
 
 	bool k1 = key1, k2 = key2;
 	bool k3 = key3, k4 = key4;
-
-	// Generic Keyboard Setup
-	INPUT keys1, keys2, keys3, keys4;
-
-	keys1.type = INPUT_KEYBOARD;
-	keys1.ki.wScan = 0;
-	keys1.ki.time = 0;
-	keys1.ki.dwExtraInfo = 0;
-
-	keys2.type = INPUT_KEYBOARD;
-	keys2.ki.wScan = 0;
-	keys2.ki.time = 0;
-	keys2.ki.dwExtraInfo = 0;
-
-	keys3.type = INPUT_KEYBOARD;
-	keys3.ki.wScan = 0;
-	keys3.ki.time = 0;
-	keys3.ki.dwExtraInfo = 0;
-
-	keys4.type = INPUT_KEYBOARD;
-	keys4.ki.wScan = 0;
-	keys4.ki.time = 0;
-	keys4.ki.dwExtraInfo = 0;
-		
+	
 	//Key 1 Press
 	if (k1 == true)
 	{
-		cout << "Hit! Z \n";
+		printf("Hit! Z \n");
 		keys1.ki.wVk = 0x5A; // Z
 		keys1.ki.dwFlags = 0;
 		SendInput(1, &keys1, sizeof(INPUT));
 		this_thread::sleep_for(chrono::microseconds(1000));
 	}
+
+	//Release the keyboard keys.
+	keys1.ki.dwFlags = KEYEVENTF_KEYUP;
+	SendInput(1, &keys1, sizeof(INPUT));
+
 	//Key 2 Press
 	if (k2 == true)
 	{
-		cout << "Hit! X \n";
+		printf("Hit! X \n");
 		keys2.ki.wVk = 0x58; // X
 		keys2.ki.dwFlags = 0;
 		SendInput(1, &keys2, sizeof(INPUT));
 		this_thread::sleep_for(chrono::microseconds(1000));
 	}
+
+	keys2.ki.dwFlags = KEYEVENTF_KEYUP;
+	SendInput(1, &keys2, sizeof(INPUT));
+
 	//Key 3 Press
 	if (k3 == true)
 	{
-		cout << "Hit! C \n";
+		printf("Hit! C \n");
 		keys3.ki.wVk = 0x43; // C
 		keys3.ki.dwFlags = 0;
 		SendInput(1, &keys3, sizeof(INPUT));
 		this_thread::sleep_for(chrono::microseconds(1000));
 	}
+
+	keys3.ki.dwFlags = KEYEVENTF_KEYUP;
+	SendInput(1, &keys3, sizeof(INPUT));
+
 	//Key 4 press
 	if (k4 == true)
 	{
-		cout << "Hit! V \n";
+		printf("Hit! V \n");
 		keys4.ki.wVk = 0x56; // V
 		keys4.ki.dwFlags = 0;
 		SendInput(1, &keys4, sizeof(INPUT));
 		this_thread::sleep_for(chrono::microseconds(1000));
 	}
 
-	//Sleeo for 1000 MicroSeconds
-	this_thread::sleep_for(chrono::microseconds(1000));
-	
-	//Release the keyboard keys.
-	keys1.ki.dwFlags = KEYEVENTF_KEYUP;
-	SendInput(1, &keys1, sizeof(INPUT));
-
-	keys2.ki.dwFlags = KEYEVENTF_KEYUP;
-	SendInput(1, &keys2, sizeof(INPUT));
-
-	keys3.ki.dwFlags = KEYEVENTF_KEYUP;
-	SendInput(1, &keys3, sizeof(INPUT));
-
 	keys4.ki.dwFlags = KEYEVENTF_KEYUP;
 	SendInput(1, &keys4, sizeof(INPUT));
-
-	k1, k2, k3, k4 = false;
 }
 
 //Function that handles key data to keypresses. 
@@ -231,7 +209,7 @@ void ManiaKeys(const HitObject* object)
 		bool key1 = false, key2 = false, key3 = false , key4 = false;
 
 		//Key 1 Hit.
-		if ((object->getStartPosition().x == 64) && (SongTime+10 >= a)){
+		if ((object->getStartPosition().x == 64) && (SongTime + 10 >= a)){
 			key1 = true;
 		}
 		//Key 2 Hit.
@@ -248,10 +226,11 @@ void ManiaKeys(const HitObject* object)
 		}
 
 		//Sleep for 100 MicroSeconds.
-		this_thread::sleep_for(chrono::microseconds(100));
+		this_thread::sleep_for(chrono::microseconds(1));
 
 		//Send keys off to another function.
 		keyPresses(key1, key2, key3, key4);
+		
 
 	}
 
@@ -267,7 +246,7 @@ void AutoThread()
 
 		if (!songStarted)
 		{
-			cout << "Song not started or was terminated!\n";
+			printf("Song not started or was terminated!\n");
 			return;
 		}
 	}
@@ -276,6 +255,8 @@ void AutoThread()
 //Check game (Not fully understood yet).
 void gameCheckerThread()
 {
+	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+
 	LPSTR s = const_cast<char *>(cmdName.c_str());	//Convert string to LPSTR for SetConsoleTitle().
 	SetConsoleTitle(s);	//Set window title of the song's name
 
@@ -285,24 +266,23 @@ void gameCheckerThread()
 		POINT p; p.x = 0; p.y = 8;
 		GetClientRect(OsuWindow, &rect);
 		ClientToScreen(OsuWindow, &p);
-		int x = min(rect.right, GetSystemMetrics(SM_CXSCREEN));
-		int y = min(rect.bottom, GetSystemMetrics(SM_CYSCREEN));
-		int swidth = x;
-		int sheight = y;
-		if (swidth * 3 > sheight * 4) {
-			swidth = sheight * 4 / 3;
-		}
-		else {
-			sheight = swidth * 3 / 4;
-		}
-		XMultiplier = swidth / 640.0f;
-		YMultiplier = sheight / 480.0f;
-		auto xOffset = static_cast<int>(x - 512.0f * XMultiplier) / 2;
-		auto yOffset = static_cast<int>(y - 384.0f * YMultiplier) / 2;
-
-		OsuWindowX = p.x + xOffset;
-		OsuWindowY = p.y + yOffset;
-
+		//int x = min(rect.right, GetSystemMetrics(SM_CXSCREEN));
+		//int y = min(rect.bottom, GetSystemMetrics(SM_CYSCREEN));
+		//int swidth = x;
+		//int sheight = y;
+		//if (swidth * 3 > sheight * 4) {
+		//	swidth = sheight * 4 / 3;
+		//}
+		//else {
+		//	sheight = swidth * 3 / 4;
+		//}
+		//XMultiplier = swidth / 640.0f;
+		//YMultiplier = sheight / 480.0f;
+		//auto xOffset = static_cast<int>(x - 512.0f * XMultiplier) / 2;
+		//auto yOffset = static_cast<int>(y - 384.0f * YMultiplier) / 2;
+		//
+		//OsuWindowX = p.x + xOffset;
+		//OsuWindowY = p.y + yOffset;
 		const static auto Length = 256;
 		char TitleC[256];
 		GetWindowText(OsuWindow, TitleC, Length);
@@ -312,8 +292,13 @@ void gameCheckerThread()
 			if (!songStarted)
 			{
 				songStarted = true;
-				thread Auto(AutoThread);
-				Auto.detach();
+				//thread Auto(AutoThread);
+				//Auto.join();
+				CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)AutoThread, 0, 0, NULL);
+
+
+
+				
 			}
 		}
 		else
@@ -324,19 +309,19 @@ void gameCheckerThread()
 			}
 			songStarted = false;
 		}
-		this_thread::sleep_for(chrono::microseconds(100));
+		this_thread::sleep_for(chrono::microseconds(1));
 	}
 }
 
 //Check game
 void checkGame()
 {
-	cout << "Searching \"osu!\" window" << endl;
+	printf("Searching \"osu!\" window\n");
 
 	OsuWindow = FindWindowA(nullptr, TEXT("osu!"));
 
 	if (OsuWindow == nullptr) {
-		cout << "Please run osu!" << endl;
+		printf("Please run osu!\n");
 		while (OsuWindow == nullptr) {
 			OsuWindow = FindWindowA(nullptr, TEXT("osu!"));
 			Sleep(100);
@@ -344,7 +329,7 @@ void checkGame()
 	}
 
 	//Output
-	cout << "Osu! found" << endl;
+	printf("osu! found\n");
 
 	OsuProcessID = getProcessID();
 	OsuProcessHandle = OpenProcess(PROCESS_ALL_ACCESS, false, OsuProcessID);
@@ -354,7 +339,7 @@ void checkGame()
 
 	if (ScanAdress == 1) {
 		TimeAdress = nullptr;
-		cout << "Error in \"Timer Find\"" << endl;
+		printf("Error in \"Timer Find\"\n");
 		CloseHandle(OsuProcessHandle);
 		Sleep(1500); //1.5 sec delay to recursion.
 		checkGame();
@@ -363,11 +348,10 @@ void checkGame()
 	int timerr;
 	ReadProcessMemory(OsuProcessHandle, reinterpret_cast<LPCVOID>(ScanAdress), &timerr, 4, nullptr);
 	TimeAdress = reinterpret_cast<LPVOID>(timerr + 0xC);
-	cout << timerr << endl;
 
 	//Output
-	cout << "Timer address: " << TimeAdress << endl;
-	cout << "Start threads" << endl;
+	printf("Timer address: %p \n", TimeAdress);
+	printf("Starting threads.\n");
 
 	//Send off to threads.
 	thread game(gameCheckerThread);
@@ -624,19 +608,42 @@ void flushMe()
 
 }
 
+//Setup keyboard thingies before song execution. 
+void setKeyboard() {
+	keys1.type = INPUT_KEYBOARD;
+	keys1.ki.wScan = 0;
+	keys1.ki.time = 0;
+	keys1.ki.dwExtraInfo = 0;
+
+	keys2.type = INPUT_KEYBOARD;
+	keys2.ki.wScan = 0;
+	keys2.ki.time = 0;
+	keys2.ki.dwExtraInfo = 0;
+
+	keys3.type = INPUT_KEYBOARD;
+	keys3.ki.wScan = 0;
+	keys3.ki.time = 0;
+	keys3.ki.dwExtraInfo = 0;
+
+	keys4.type = INPUT_KEYBOARD;
+	keys4.ki.wScan = 0;
+	keys4.ki.time = 0;
+	keys4.ki.dwExtraInfo = 0;
+}
+
 //Main Function, the Begining.
 int main()
 {
-	redo:
-		OpenSong();		//Open Dialog to choose song.
-		checkGame();	//Check for osu! application.
-		getchar();		//Wait for user to press Enter to restart program.
-		flushMe();		//Flush variables, soft restart.
+redo:
+	setKeyboard();
+	OpenSong();		//Open Dialog to choose song.
+	checkGame();	//Check for osu! application.
+	getchar();		//Wait for user to press Enter to restart program.
+	flushMe();		//Flush variables, soft restart.
 	goto redo;
 	return 0;
 }
 
-//TODO: 1. Stop program if osu! loses focus.
-//TODO: 2. Give program more FPS, or find a way for more CPU.
+//TODO: 2. Give program more FPS, or find a way for more CPU. (In the Works)
 //TODO: 3. Handles multiple keypresses better. 
 //TODO: 4. Clean unused code for this version of bot. (50% done)

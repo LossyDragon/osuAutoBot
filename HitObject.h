@@ -70,15 +70,6 @@ inline float lerp(float a, float b, float t) {
 }
 
 inline vec2f intersect(vec2f a, vec2f ta, vec2f b, vec2f tb) {
-	// xy = a + ta * t = b + tb * u
-	// t =(b + tb*u -a)/ta
-	//t(x) == t(y)
-	//(b.x + tb.x*u -a.x)/ta.x = (b.y + tb.y*u -a.y)/ta.y
-	// b.x*ta.y + tb.x*u*ta.y -a.x*ta.y = b.y*ta.x + tb.y*u*ta.x -a.y*ta.x
-	// tb.x*u*ta.y - tb.y*u*ta.x= b.y*ta.x  -a.y*ta.x -b.x*ta.y +a.x*ta.y
-	//u *(tb.x*ta.y - tb.y*ta.x) = (b.y-a.y)ta.x +(a.x-b.x)ta.y
-	//u = ((b.y-a.y)ta.x +(a.x-b.x)ta.y) / (tb.x*ta.y - tb.y*ta.x);
-
 	auto des = tb.x * ta.y - tb.y * ta.x;
 	if (abs(des) < 0.00001f)
 		cout << "Vectors are parallel." << endl;
@@ -86,8 +77,7 @@ inline vec2f intersect(vec2f a, vec2f ta, vec2f b, vec2f tb) {
 	return b.cpy().add(tb.x * u, tb.y * u);
 }
 
-float CircleTAt(vec2f pt, vec2f centre)
-{
+float CircleTAt(vec2f pt, vec2f centre){
 	return atan2f(pt.y - centre.y, pt.x - centre.x);
 }
 
@@ -142,12 +132,12 @@ public:
 
 	int getStartTime() const
 	{
-		return startTime - 8;
+		return startTime;// -8;
 	}
 
 	int getEndTime() const
 	{
-		return endTime - 8;
+		return endTime;// -8;
 	}
 
 	int getStack() const
