@@ -22,85 +22,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "TimingPoint.h"
 #include "segment.h"
 #include <math.h>
-#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 
 using namespace std;
-
-inline float distance(vec2f p0, vec2f p1) {
-	return (p1 - p0).len();
-}
-
-float delta = 1.0f;
-float TWO_PI = static_cast<float>(M_PI * 2.0f);
-float HALF_PI = static_cast<float>(M_PI / 2.0f);
-
-inline long binomialCoefficient(const int& n, int k) {
-	if (k < 0 || k > n)
-		return 0;
-	if (k == 0 || k == n)
-		return 1;
-	k = MIN(k, n - k);  // take advantage of symmetry
-	long c = 1;
-	for (int i = 0; i < k; i++)
-		c = c * (n - i) / (i + 1);
-	return c;
-}
-
-inline float bernstein(const int& i, const int& n, const float& t) {
-	return binomialCoefficient(n, i) * powf(t, i) * powf(1.0f - t, n - i);
-}
-
-inline vec2f bezier(const vector<vec2f>& pts, const float& t) {
-	vec2f c;
-	int n = pts.size() - 1;
-	for (int i = 0; i <= n; i++) {
-		float b = bernstein(i, n, t);
-		c.x += pts[i].x * b;
-		c.y += pts[i].y * b;
-	}
-	return c;
-}
-
-inline bool isIn(float a, float b, float c) {
-	return (b > a && b < c) || (b < a && b > c);
-}
-
-inline float lerp(float a, float b, float t) {
-	return a * (1.0f - t) + b * t;
-}
-
-inline vec2f intersect(vec2f a, vec2f ta, vec2f b, vec2f tb) {
-	auto des = tb.x * ta.y - tb.y * ta.x;
-	if (abs(des) < 0.00001f)
-		cout << "Vectors are parallel." << endl;
-	auto u = ((b.y - a.y) * ta.x + (a.x - b.x) * ta.y) / des;
-	return b.cpy().add(tb.x * u, tb.y * u);
-}
-
-float CircleTAt(vec2f pt, vec2f centre){
-	return atan2f(pt.y - centre.y, pt.x - centre.x);
-}
-
-void CircleThroughPoints(vec2f A, vec2f B, vec2f C, vec2f& centre, float& radius, float& t_initial, float& t_final)
-{
-	float D = 2 * (A.x * (B.y - C.y) + B.x * (C.y - A.y) + C.x * (A.y - B.y));
-	float AMagSq = A.LengthSquared();
-	float BMagSq = B.LengthSquared();
-	float CMagSq = C.LengthSquared();
-	centre = { (AMagSq * (B.y - C.y) + BMagSq * (C.y - A.y) + CMagSq * (A.y - B.y)) / D,
-		(AMagSq * (C.x - B.x) + BMagSq * (A.x - C.x) + CMagSq * (B.x - A.x)) / D };
-	radius = (centre - A).len();
-
-	t_initial = CircleTAt(A, centre);
-	float t_mid = CircleTAt(B, centre);
-	t_final = CircleTAt(C, centre);
-	while (t_mid < t_initial) t_mid += 2.0f * M_PI;
-	while (t_final < t_initial) t_final += 2.0f * M_PI;
-	if (t_mid > t_final)
-	{
-		t_final -= 2.0f * M_PI;
-	}
-}
 
 class HitObject
 {
@@ -169,48 +92,48 @@ public:
 	vec2f getPointByT(float& t) {
 		auto floor = floorf(t);
 		t = static_cast<int>(floor) % 2 == 0 ? t - floor : floor + 1.0f - t;
-		if (sliderType == 'P') {
-			auto dist = PixelLength * t;
-			auto currDist = 0.0f;
-			auto oldpoint = startPosition;
-			auto ct = 0.0f;
-			while (currDist < dist)
-			{
-				auto ang = endAng * ct + startAng * (1.f - ct);
-				vec2f p{ PCenter.x + PRadius * cosf(ang), PCenter.y + PRadius * sinf(ang) };
-				currDist += distance(p, oldpoint);
-				if (currDist > dist) { return oldpoint; }
-				oldpoint = p;
-				ct += 1.0f / (PixelLength * 0.5f);
-			}
-			return oldpoint;
-		}
+		//if (sliderType == 'P') {
+		//	auto dist = PixelLength * t;
+		//	auto currDist = 0.0f;
+		//	auto oldpoint = startPosition;
+		//	auto ct = 0.0f;
+		//	while (currDist < dist)
+		//	{
+		//		auto ang = endAng * ct + startAng * (1.f - ct);
+		//		vec2f p{ PCenter.x + PRadius * cosf(ang), PCenter.y + PRadius * sinf(ang) };
+		//		currDist += distance(p, oldpoint);
+		//		if (currDist > dist) { return oldpoint; }
+		//		oldpoint = p;
+		//		ct += 1.0f / (PixelLength * 0.5f);
+		//	}
+		//	return oldpoint;
+		//}
 		auto dist = PixelLength * t;
 		auto currDist = 0.0f;
 		auto oldpoint = startPosition;
-		for (int i = 0; i < sliderSegments.size(); i++)
-		{
-			auto seg = sliderSegments[i];
-			if (i == sliderSegments.size() - 1)
-			{
-				auto ct = 0.0f;
-				while (currDist < PixelLength)
-				{
-					auto p{ bezier(seg.points, ct) };
-					currDist += distance(p, oldpoint);
-					if (currDist > dist) { return oldpoint; }
-					oldpoint = p;
-					ct += 1.0f / (seg.points.size() * 50 - 1);
-				}
-			}
-			for (auto ct = 0.0f; ct < 1.0f + (1.0f / (seg.points.size() * 50 - 1)); ct += 1.0f / (seg.points.size() * 50 - 1))
-			{
-				auto p{ bezier(seg.points, ct) };
-				currDist += distance(p, oldpoint);
-				if (currDist > dist) { return oldpoint; }
-				oldpoint = p;
-			}
-		}
+		///for (int i = 0; i < sliderSegments.size(); i++)
+		///{
+		///	//auto seg = sliderSegments[i];
+		///	//if (i == sliderSegments.size() - 1)
+		///	//{
+		///	//	auto ct = 0.0f;
+		///	//	while (currDist < PixelLength)
+		///	//	{
+		///	//		//auto p{ bezier(seg.points, ct) };
+		///	//		//currDist += distance(p, oldpoint);
+		///	//		if (currDist > dist) { return oldpoint; }
+		///	//		//oldpoint = p;
+		///	//		ct += 1.0f / (seg.points.size() * 50 - 1);
+		///	//	}
+		///	//}
+		///	//for (auto ct = 0.0f; ct < 1.0f + (1.0f / (seg.points.size() * 50 - 1)); ct += 1.0f / (seg.points.size() * 50 - 1))
+		///	//{
+		///	//	//auto p{ bezier(seg.points, ct) };
+		///	//	//currDist += distance(p, oldpoint);
+		///	//	//if (currDist > dist) { return oldpoint; }
+		///	//	//oldpoint = p;
+		///	//}
+		///}
 		return oldpoint;
 	}
 
@@ -233,7 +156,6 @@ public:
 						beatLengthBase = point.getBPM();
 					}
 					BPM = point.getBPM();
-					//break;
 				}
 			}
 
@@ -254,54 +176,6 @@ public:
 				sliderPoints.resize(sliderPoints.size() - 1);
 			}
 			sliderType = SliderTokens[0].c_str()[0];
-			if (sliderType == 'L' || sliderType == 'C') {
-				for (int i = 1; i < static_cast<int>(sliderPoints.size()); i++) {
-					auto p0 = sliderPoints[i - 1];
-					auto p1 = sliderPoints[i];
-					vector<vec2f> segmentPoints = { p0, p1 };
-					Segment seg;
-					seg.points = segmentPoints;
-					sliderSegments.push_back(seg);
-				}
-			}
-			else if (sliderType == 'B') {
-			bezier:
-				vector<vector<vec2f>> curveList;
-				vector<vec2f> curve;
-				for (auto point : sliderPoints) {
-					if (curve.size() > 1) {
-						if (point == curve[curve.size() - 1]) {
-							curveList.push_back(curve);
-							curve.clear();
-						}
-					}
-					curve.push_back(point);
-				}
-
-				curveList.push_back(curve);
-
-				curve.clear();
-				for (auto plot : curveList) {
-					Segment seg;
-					seg.points = plot;
-					sliderSegments.push_back(seg);
-				}
-			}
-			else if (sliderType == 'P') {
-				if (sliderPoints.size() != 3) {
-					sliderType = 'B';
-					goto bezier;
-				}
-				vec2f a = sliderPoints[0];
-				vec2f b = sliderPoints[1];
-				vec2f c = sliderPoints[2];
-
-				CircleThroughPoints(a, b, c, PCenter, PRadius, startAng, endAng);
-			}
-			else {
-				sliderType = 'B';
-				goto bezier;
-			}
 		}
 		else if (itSpinner()) {
 			endTime = atoi(tokens.at(5).c_str());

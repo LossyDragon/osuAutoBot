@@ -17,7 +17,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
 //Includes.
-#define _USE_MATH_DEFINES
 #include <cmath>
 #include <iostream>
 #include "HitObject.h"
@@ -27,7 +26,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <TlHelp32.h>
 #include <psapi.h>
 #include <limits>
-
 
 //Vectors.
 vector<TimingPoint> TimingPoints;
@@ -43,7 +41,7 @@ float StackLeniency;
 float SliderMultiplier;
 float OverallDifficulty;
 float XMultiplier, YMultiplier;
-string cmdName;						//String to set Console Title.
+string cmdName;
 
 //winAPI stuff
 HWND OsuWindow;
@@ -56,7 +54,6 @@ INPUT keys1, keys2, keys3, keys4;
 
 ///Temporary warning Disable.
 #pragma warning (disable:4312)
-#pragma optimize("", on)
 
 //Get Base Address.
 LPVOID GetBaseAddress(HANDLE hProc)
@@ -131,123 +128,64 @@ void timeThread()
 	while (true)
 	{
 		ReadProcessMemory(OsuProcessHandle, TimeAdress, &SongTime, 4, nullptr);
-		this_thread::sleep_for(chrono::microseconds(100));
+		this_thread::sleep_for(chrono::microseconds(100));	//Micronaps
 	}
 }
 
-//TEST-------------------------------
-void k1() {
-
-	printf("Hit! Z \n");
-	keys1.ki.wVk = 0x5A; // Z
-	keys1.ki.dwFlags = 0;
-	SendInput(1, &keys1, sizeof(INPUT));
-	this_thread::sleep_for(chrono::microseconds(600));
-	keys1.ki.dwFlags = KEYEVENTF_KEYUP;
-	SendInput(1, &keys1, sizeof(INPUT));
-}
-void k2() {
-
-	printf("Hit! X \n");
-	keys2.ki.wVk = 0x58; // X
-	keys2.ki.dwFlags = 0;
-	SendInput(1, &keys2, sizeof(INPUT));
-	this_thread::sleep_for(chrono::microseconds(600));
-	keys2.ki.dwFlags = KEYEVENTF_KEYUP;
-	SendInput(1, &keys2, sizeof(INPUT));
-}
-void k3() {
-	printf("Hit! C \n");
-	keys3.ki.wVk = 0x43; // C
-	keys3.ki.dwFlags = 0;
-	SendInput(1, &keys3, sizeof(INPUT));
-	this_thread::sleep_for(chrono::microseconds(600));
-	keys3.ki.dwFlags = KEYEVENTF_KEYUP;
-	SendInput(1, &keys3, sizeof(INPUT));
-}
-void k4() {
-	printf("Hit! V \n");
-	keys4.ki.wVk = 0x56; // V
-	keys4.ki.dwFlags = 0;
-	SendInput(1, &keys4, sizeof(INPUT));
-	this_thread::sleep_for(chrono::microseconds(600));
-	keys4.ki.dwFlags = KEYEVENTF_KEYUP;
-	SendInput(1, &keys4, sizeof(INPUT));
+//Keys 1&2, 3&4 threads.
+void k1_2(bool k1, bool k2) {
+	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+	if (k1) {
+		//printf("Hit! Z \n");
+		keys1.ki.wVk = 0x5A; // Z
+		keys1.ki.dwFlags = 0;
+		SendInput(1, &keys1, sizeof(INPUT));
+		this_thread::sleep_for(chrono::microseconds(600));	//Micronaps
+		keys1.ki.dwFlags = KEYEVENTF_KEYUP;
+		SendInput(1, &keys1, sizeof(INPUT));
+	}
+	if (k2) {
+		//printf("Hit! X \n");
+		keys2.ki.wVk = 0x58; // X
+		keys2.ki.dwFlags = 0;
+		SendInput(1, &keys2, sizeof(INPUT));
+		this_thread::sleep_for(chrono::microseconds(600));	//Micronaps
+		keys2.ki.dwFlags = KEYEVENTF_KEYUP;
+		SendInput(1, &keys2, sizeof(INPUT));
+	}
 }
 
-//Function to press the keys.
-///void keyPresses(bool key1, bool key2, bool key3, bool key4) {
-///
-///	bool k1 = key1, k2 = key2;
-///	bool k3 = key3, k4 = key4;
-///	
-///	//Key 1 Press
-///	if (k1 == true)
-///	{
-///		printf("Hit! Z \n");
-///		keys1.ki.wVk = 0x5A; // Z
-///		keys1.ki.dwFlags = 0;
-///		SendInput(1, &keys1, sizeof(INPUT));
-///		this_thread::sleep_for(chrono::microseconds(1000));
-///	}
-///
-///	//Release the keyboard keys.
-///	keys1.ki.dwFlags = KEYEVENTF_KEYUP;
-///	SendInput(1, &keys1, sizeof(INPUT));
-///
-///	//Key 2 Press
-///	if (k2 == true)
-///	{
-///		printf("Hit! X \n");
-///		keys2.ki.wVk = 0x58; // X
-///		keys2.ki.dwFlags = 0;
-///		SendInput(1, &keys2, sizeof(INPUT));
-///		this_thread::sleep_for(chrono::microseconds(1000));
-///	}
-///
-///	keys2.ki.dwFlags = KEYEVENTF_KEYUP;
-///	SendInput(1, &keys2, sizeof(INPUT));
-///
-///	//Key 3 Press
-///	if (k3 == true)
-///	{
-///		printf("Hit! C \n");
-///		keys3.ki.wVk = 0x43; // C
-///		keys3.ki.dwFlags = 0;
-///		SendInput(1, &keys3, sizeof(INPUT));
-///		this_thread::sleep_for(chrono::microseconds(1000));
-///	}
-///
-///	keys3.ki.dwFlags = KEYEVENTF_KEYUP;
-///	SendInput(1, &keys3, sizeof(INPUT));
-///
-///	//Key 4 press
-///	if (k4 == true)
-///	{
-///		printf("Hit! V \n");
-///		keys4.ki.wVk = 0x56; // V
-///		keys4.ki.dwFlags = 0;
-///		SendInput(1, &keys4, sizeof(INPUT));
-///		this_thread::sleep_for(chrono::microseconds(1000));
-///	}
-///
-///	keys4.ki.dwFlags = KEYEVENTF_KEYUP;
-///	SendInput(1, &keys4, sizeof(INPUT));
-///}
+void k3_4(bool k3, bool k4) {
+	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+	if (k3) {
+		//printf("Hit! C \n");
+		keys3.ki.wVk = 0x43; // C
+		keys3.ki.dwFlags = 0;
+		SendInput(1, &keys3, sizeof(INPUT));
+		this_thread::sleep_for(chrono::microseconds(600));	//Micronaps
+		keys3.ki.dwFlags = KEYEVENTF_KEYUP;
+		SendInput(1, &keys3, sizeof(INPUT));
+	}
+	if (k4) {
+		//printf("Hit! V \n");
+		keys4.ki.wVk = 0x56; // V
+		keys4.ki.dwFlags = 0;
+		SendInput(1, &keys4, sizeof(INPUT));
+		this_thread::sleep_for(chrono::microseconds(600));	//Micronaps
+		keys4.ki.dwFlags = KEYEVENTF_KEYUP;
+		SendInput(1, &keys4, sizeof(INPUT));
+	}
+}
 
 //Function that handles key data to keypresses. 
 void ManiaKeys(const HitObject* object)
 {
-	//Output
-	//cout << "Start Pos: " << object->getStartPosition().x << ", Start Time: " << object->getStartTime() << endl;
+	//Bools for applicable keypresses
+	bool key1 = false, key2 = false, key3 = false, key4 = false;
 	
 	while (SongTime < object->getStartTime() && songStarted)
 	{
 		auto a = static_cast<int>(object->getStartTime());
-
-		//Bools for applicable keypresses
-		bool key1 = false, key2 = false, key3 = false, key4 = false;
-
 		//Key 1 Hit.
 		if ((object->getStartPosition().x == 64) && (SongTime + 10 >= a)) {
 			key1 = true;
@@ -265,32 +203,25 @@ void ManiaKeys(const HitObject* object)
 			key4 = true;
 		}
 
-		//Sleep for 100 MicroSeconds.
-		this_thread::sleep_for(chrono::microseconds(1));
+		//Micronaps
+		this_thread::sleep_for(chrono::microseconds(250));
 
-		//Send keys off to another function.
-		//keyPresses(key1, key2, key3, key4);
-
-
-		//MULTI THREAD?!~
-		if (key1) {
-			thread keyB1(k1);
-			keyB1.detach();
+		//TODO: Better simultaneous keypresses.
+		//TODO: Single keys actually hit 4-times. Fix
+		if (key1 || key2) {
+			thread keys1_2(k1_2, key1, key2);
+			keys1_2.detach();
 		}
-		if (key2) {
-			thread keyB2(k2);
-			keyB2.detach();
-		}
-		if (key3) {
-			thread keyB3(k3);
-			keyB3.detach();
-		}
-		if (key4){
-			thread keyB4(k4);
-			keyB4.detach();
+		if (key3 || key4) {
+			thread keys3_4(k3_4,key3, key4);
+			keys3_4.detach();
 		}
 	}
-
+	//Output
+	///printf("K1 %s\n", key1 ? "true" : "false");
+	///printf("K2 %s\n", key2 ? "true" : "false");
+	///printf("K3 %s\n", key3 ? "true" : "false");
+	///printf("K4 %s\n", key3 ? "true" : "false");
 }
 
 //Auto Thread.
@@ -309,7 +240,7 @@ void AutoThread()
 	}
 }
 
-//Check game (Not fully understood yet).
+//Game checker.
 void gameCheckerThread()
 {
 	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
@@ -323,23 +254,6 @@ void gameCheckerThread()
 		POINT p; p.x = 0; p.y = 8;
 		GetClientRect(OsuWindow, &rect);
 		ClientToScreen(OsuWindow, &p);
-		//int x = min(rect.right, GetSystemMetrics(SM_CXSCREEN));
-		//int y = min(rect.bottom, GetSystemMetrics(SM_CYSCREEN));
-		//int swidth = x;
-		//int sheight = y;
-		//if (swidth * 3 > sheight * 4) {
-		//	swidth = sheight * 4 / 3;
-		//}
-		//else {
-		//	sheight = swidth * 3 / 4;
-		//}
-		//XMultiplier = swidth / 640.0f;
-		//YMultiplier = sheight / 480.0f;
-		//auto xOffset = static_cast<int>(x - 512.0f * XMultiplier) / 2;
-		//auto yOffset = static_cast<int>(y - 384.0f * YMultiplier) / 2;
-		//
-		//OsuWindowX = p.x + xOffset;
-		//OsuWindowY = p.y + yOffset;
 		const static auto Length = 256;
 		char TitleC[256];
 		GetWindowText(OsuWindow, TitleC, Length);
@@ -355,12 +269,11 @@ void gameCheckerThread()
 		else
 		{
 			if (Title == "")
-			{
 				TerminateProcess(GetCurrentProcess(), 0);
-			}
+
 			songStarted = false;
 		}
-		this_thread::sleep_for(chrono::microseconds(1));
+		this_thread::sleep_for(chrono::microseconds(1));	//Micronaps
 	}
 }
 
@@ -425,24 +338,8 @@ void ParseSong(string path)
 		string str;
 		getline(t, str);
 
-		//Find [General]
-		if (str.find("[General]") != string::npos)	{
-			General = true;
-		}
-		else if (General){
-			//Find StachLeniencey
-			if (str.find("StackLeniency") != string::npos)
-			{
-				StackLeniency = stof(str.substr(str.find(':') + 1));
-			}
-			else if (str.find(':') == string::npos)
-			{
-				General = false;
-			}
-		}
-
 		//Find [Metadata]
-		else if(str.find("[Metadata]") != string::npos)
+		if(str.find("[Metadata]") != string::npos)
 		{
 			Metadata = true;
 		}
@@ -469,14 +366,6 @@ void ParseSong(string path)
 			if (str.find("OverallDifficulty:") != string::npos) {
 				OverallDifficulty = stof(str.substr(str.find(':') + 1));
 			}
-			else if (str.find("CircleSize") != string::npos)
-			{
-				CircleSize = stof(str.substr(str.find(':') + 1));
-			}
-			else if (str.find("SliderMultiplier") != string::npos)
-			{
-				SliderMultiplier = stof(str.substr(str.find(':') + 1));
-			}
 			else if (str.find(':') == string::npos)
 			{
 				Difficulty = false;
@@ -497,7 +386,7 @@ void ParseSong(string path)
 			}
 		}
 		
-		//Find [HitObjects]
+		//Find [HitObjects], we mostly need this.
 		else if (str.find("[HitObjects]") != string::npos)
 		{
 			Hits = true;
@@ -522,13 +411,7 @@ void ParseSong(string path)
 	//Combine artist and title for a title.
 	cmdName = artist + " - " + title;
 
-	//float PreEmpt = mapDifficultyRange(OverallDifficulty, 1800.0f, 1200.0f, 450.0f);
-	StackOffset = (512.0f / 16.0f) * (1.0f - 0.7f * (CircleSize - 5.0f) / 5.0f) / 10.0f;
-
-	///Dont need to display this.
-	//cout << StackOffset << endl;
-
-	const int STACK_LENIENCE = 3;
+	///###################################################################################
 	for (int i = HitObjects.size() - 1; i > 0; i--)
 	{
 		int n = i;
@@ -559,40 +442,7 @@ void ParseSong(string path)
 
 				if (objectN->itSpinner()) continue;
 
-				//HitObjectSpannable spanN = objectN as HitObjectSpannable;
-				//float timeI = objectI->startTime - PreEmpt * StackLeniency;
 				float timeN = static_cast<float>(objectN->itSlider() ? objectN->endTime : objectN->startTime);
-				//if (timeI > timeN)
-				//	break;
-
-				/* This is a special case where hticircles are moved DOWN and RIGHT (negative stacking) if they are under the *last* slider in a stacked pattern.
-				*    o==o <- slider is at original location
-				*        o <- hitCircle has stack of -1
-				*         o <- hitCircle has stack of -2
-				*/
-				if (objectN->endTime != 0 && distance(objectN->getEndPos(), objectI->startPosition) < STACK_LENIENCE)
-				{
-					int offset = objectI->stackId - objectN->stackId + 1;
-					for (int j = n + 1; j <= i; j++)
-					{
-						//For each object which was declared under this slider, we will offset it to appear *below* the slider end (rather than above).
-						if (distance(objectN->getEndPos(), HitObjects[j].startPosition) < STACK_LENIENCE)
-							HitObjects[j].stackId -= offset;
-					}
-
-					//We have hit a slider.  We should restart calculation using this as the new base.
-					//Breaking here will mean that the slider still has StackCount of 0, so will be handled in the i-outer-loop.
-					break;
-				}
-
-				if (distance(objectN->startPosition, objectI->startPosition) < STACK_LENIENCE)
-				{
-					//Keep processing as if there are no sliders.  If we come across a slider, this gets cancelled out.
-					//NOTE: Sliders with start positions stacking are a special case that is also handled here.
-
-					objectN->stackId = objectI->stackId + 1;
-					objectI = objectN;
-				}
 			}
 		}
 		else if (objectI->itSlider())
@@ -605,15 +455,6 @@ void ParseSong(string path)
 				HitObject* objectN = &HitObjects[n];
 
 				if (objectN->itSpinner()) continue;
-
-				//if (objectI->startTime - (PreEmpt * StackLeniency) > objectN->startTime)
-				//	break;
-
-				if (distance((objectN->endTime != 0 ? objectN->getEndPos() : objectN->startPosition), objectI->startPosition) < STACK_LENIENCE)
-				{
-					objectN->stackId = objectI->stackId + 1;
-					objectI = objectN;
-				}
 			}
 		}
 	}
@@ -643,7 +484,7 @@ void OpenSong()
 	}
 }
 
-//Attempt to flush variables, so that the program shouldn't be restarted.
+//Flush variables, so that the program shouldn't be restarted.
 void flushMe()
 {
 	TimingPoints.clear();				//Vector Clear.
@@ -655,8 +496,8 @@ void flushMe()
 	StackLeniency = NULL;				//
 	SliderMultiplier = NULL;			//
 	OverallDifficulty = NULL;			//
+	OsuWindowX, OsuWindowY = NULL;		//
 	XMultiplier, YMultiplier = NULL;	//
-
 }
 
 //Setup keyboard thingies before song execution. 
@@ -696,5 +537,6 @@ redo:
 }
 
 //TODO: 2. Give program more FPS, or find a way for more CPU. (In the Works)
-//TODO: 3. Handles multiple keypresses better. 
-//TODO: 4. Clean unused code for this version of bot. (50% done)
+//TODO: 4. Clean unused code for this version of bot. (I'll get to it later)
+//TODO: THREAD_PRIORITY_TIME_CRITICAL even needed?
+//TODO: LongNotes...
