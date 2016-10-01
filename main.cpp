@@ -32,6 +32,7 @@ vector<TimingPoint> TimingPoints;
 vector<HitObject> HitObjects;
 
 //Variables.
+int timerr = NULL;
 int SongTime;
 int OsuWindowX, OsuWindowY;
 bool songStarted;
@@ -47,7 +48,7 @@ string cmdName;
 HWND OsuWindow;
 DWORD OsuProcessID;
 LPVOID TimeAdress;
-HANDLE OsuProcessHandle;
+HANDLE OsuProcessHandle, hConsole;
 
 //Keyboard things
 INPUT keys1, keys2, keys3, keys4;
@@ -133,25 +134,54 @@ void timeThread()
 }
 
 //Keys 1&2, 3&4 threads.
+//void k1_2(bool k1, bool k2) {
+//	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+//	if (k1) {
+//		//printf("Hit! Z \n");
+//		keys1.ki.wVk = 0x5A; // Z
+//		keys1.ki.dwFlags = 0;
+//		SendInput(1, &keys1, sizeof(INPUT));
+//		this_thread::sleep_for(chrono::microseconds(600));	//Micronaps
+//		keys1.ki.dwFlags = KEYEVENTF_KEYUP;
+//		SendInput(1, &keys1, sizeof(INPUT));
+//	}
+//	if (k2) {
+//		//printf("Hit! X \n");
+//		keys2.ki.wVk = 0x58; // X
+//		keys2.ki.dwFlags = 0;
+//		SendInput(1, &keys2, sizeof(INPUT));
+//		this_thread::sleep_for(chrono::microseconds(600));	//Micronaps
+//		keys2.ki.dwFlags = KEYEVENTF_KEYUP;
+//		SendInput(1, &keys2, sizeof(INPUT));
+//	}
+//}
+
+
 void k1_2(bool k1, bool k2) {
 	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
-	if (k1) {
-		//printf("Hit! Z \n");
-		keys1.ki.wVk = 0x5A; // Z
-		keys1.ki.dwFlags = 0;
-		SendInput(1, &keys1, sizeof(INPUT));
-		this_thread::sleep_for(chrono::microseconds(600));	//Micronaps
-		keys1.ki.dwFlags = KEYEVENTF_KEYUP;
-		SendInput(1, &keys1, sizeof(INPUT));
+	INPUT in;
+	vector<WORD> inputs;
+
+	if (k1)
+		inputs.emplace_back('Z');
+	if (k2)
+		inputs.emplace_back('X');
+
+	for (auto input : inputs) {
+		//Debug output
+		in.type = INPUT_KEYBOARD;
+		in.ki.wScan = 0;
+		in.ki.wVk = input;
+		in.ki.time = 0;
+		in.ki.dwExtraInfo = 0;
+		in.ki.dwFlags = 0;
+		SendInput(1, &in, sizeof(in));
 	}
-	if (k2) {
-		//printf("Hit! X \n");
-		keys2.ki.wVk = 0x58; // X
-		keys2.ki.dwFlags = 0;
-		SendInput(1, &keys2, sizeof(INPUT));
-		this_thread::sleep_for(chrono::microseconds(600));	//Micronaps
-		keys2.ki.dwFlags = KEYEVENTF_KEYUP;
-		SendInput(1, &keys2, sizeof(INPUT));
+	this_thread::sleep_for(chrono::microseconds(600));
+
+	for (auto input : inputs) {
+		in.ki.dwFlags = KEYEVENTF_KEYUP;
+		SendInput(1, &in, sizeof(in));
 	}
 }
 
@@ -331,7 +361,7 @@ void ParseSong(string path)
 	string artist, title;
 	bool General = false, Difficulty = false;
 	bool Timing = false, Hits = false;
-	bool Metadata = false; 
+	bool Metadata = false;
 
 	while (t)
 	{
@@ -339,7 +369,7 @@ void ParseSong(string path)
 		getline(t, str);
 
 		//Find [Metadata]
-		if(str.find("[Metadata]") != string::npos)
+		if (str.find("[Metadata]") != string::npos)
 		{
 			Metadata = true;
 		}
@@ -373,19 +403,19 @@ void ParseSong(string path)
 		}
 
 		//Find [TimingPoints]
-		else if (str.find("[TimingPoints]") != string::npos) {
-			Timing = true;
-		}
-		else if (Timing) {
-			if (str.find(',') == string::npos){
-				Timing = false;
-			}
-			else {
-				TimingPoint TP = TimingPoint(str);
-				TimingPoints.push_back(TP);
-			}
-		}
-		
+		//else if (str.find("[TimingPoints]") != string::npos) {
+		//	Timing = true;
+		//}
+		//else if (Timing) {
+		//	if (str.find(',') == string::npos) {
+		//		Timing = false;
+		//	}
+		//	else {
+		//		TimingPoint TP = TimingPoint(str);
+		//		TimingPoints.push_back(TP);
+		//	}
+		//}
+
 		//Find [HitObjects], we mostly need this.
 		else if (str.find("[HitObjects]") != string::npos)
 		{
@@ -399,7 +429,7 @@ void ParseSong(string path)
 			}
 			else
 			{
-				HitObject HO = HitObject(str, &TimingPoints, SliderMultiplier);
+				HitObject HO = HitObject(str, &TimingPoints);
 				HitObjects.push_back(HO);
 			}
 		}
@@ -410,54 +440,6 @@ void ParseSong(string path)
 
 	//Combine artist and title for a title.
 	cmdName = artist + " - " + title;
-
-	///###################################################################################
-	for (int i = HitObjects.size() - 1; i > 0; i--)
-	{
-		int n = i;
-		/* We should check every note which has not yet got a stack.
-		* Consider the case we have two interwound stacks and this will make sense.
-		*
-		* o <-1      o <-2
-		*  o <-3      o <-4
-		*
-		* We first process starting from 4 and handle 2,
-		* then we come backwards on the i loop iteration until we reach 3 and handle 1.
-		* 2 and 1 will be ignored in the i loop because they already have a stack value.
-		*/
-
-		HitObject *objectI = &HitObjects[i];
-
-		if (objectI->stackId != 0 || objectI->itSpinner()) continue;
-
-		/* If this object is a hitcircle, then we enter this "special" case.
-		* It either ends with a stack of hitcircles only, or a stack of hitcircles that are underneath a slider.
-		* Any other case is handled by the "is Slider" code below this.
-		*/
-		if (objectI->endTime == 0)
-		{
-			while (--n >= 0)
-			{
-				HitObject* objectN = &HitObjects[n];
-
-				if (objectN->itSpinner()) continue;
-
-				float timeN = static_cast<float>(objectN->itSlider() ? objectN->endTime : objectN->startTime);
-			}
-		}
-		else if (objectI->itSlider())
-		{
-			/* We have hit the first slider in a possible stack.
-			* From this point on, we ALWAYS stack positive regardless.
-			*/
-			while (--n >= 0)
-			{
-				HitObject* objectN = &HitObjects[n];
-
-				if (objectN->itSpinner()) continue;
-			}
-		}
-	}
 }
 
 //Opens Dialog to choose .osu file.
@@ -480,7 +462,7 @@ void OpenSong()
 	ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
 
 	if (GetOpenFileName(&ofn)) {
-		ParseSong(ofn.lpstrFile);
+		ParseSong(ofn.lpstrFile); //Parse song data.
 	}
 }
 
@@ -523,20 +505,32 @@ void setKeyboard() {
 	keys4.ki.dwExtraInfo = 0;
 }
 
+//Function for prerequisites.
+void description(){
+	hConsole = GetStdHandle(STD_OUTPUT_HANDLE); //Change color of text.
+	SetConsoleTextAttribute(hConsole, 12); //RED
+	printf("4K Mania only!\n");
+	printf("ScreenRecording may lower accuracy.\n");
+	printf("Use in offline mode. Do not use to Cheat!\n");
+	SetConsoleTextAttribute(hConsole, 7); //Back to white.
+	Sleep(1500);
+}
+
 //Main Function, the Begining.
 int main()
 {
-redo:
-	setKeyboard();
-	OpenSong();		//Open Dialog to choose song.
-	checkGame();	//Check for osu! application.
-	getchar();		//Wait for user to press Enter to restart program.
-	flushMe();		//Flush variables, soft restart.
-	goto redo;
+	description();	//Prerequisite.
+	redo:			//Lazy Recursion.
+		setKeyboard();	//Initialize keyboard control.
+		OpenSong();		//Open Dialog, choose song.
+		system("CLS");	//Cleanup description();
+		checkGame();	//Check for osu! application.
+		getchar();		//Wait for user to press Enter to restart program.
+		flushMe();		//Flush variables, soft restart.
+	goto redo;		//Goto.
 	return 0;
 }
 
 //TODO: 2. Give program more FPS, or find a way for more CPU. (In the Works)
-//TODO: 4. Clean unused code for this version of bot. (I'll get to it later)
-//TODO: THREAD_PRIORITY_TIME_CRITICAL even needed?
+//TODO: 4. Clean unused code for this version of bot. (Yeah, yeah~)
 //TODO: LongNotes...

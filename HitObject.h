@@ -48,11 +48,6 @@ public:
 		return (hitType & 2) > 0;
 	}
 
-	bool itSpinner() const
-	{
-		return (hitType & 8) > 0;
-	}
-
 	int getStartTime() const //Delay, begining of song.
 	{
 		return startTime -8;
@@ -137,9 +132,10 @@ public:
 		return oldpoint;
 	}
 
-	HitObject(string hitstring, vector<TimingPoint> *timingPoints, float MapSliderMultiplier) {
+	HitObject(string hitstring, vector<TimingPoint> *timingPoints) {
 		endTime = 0;
 		auto tokens = split_string(hitstring, ",");
+
 		startPosition = vec2f(stof(tokens.at(0)), stof(tokens.at(1)));
 		startTime = atoi(tokens.at(2).c_str());
 		hitType = atoi(tokens.at(3).c_str());
@@ -161,24 +157,23 @@ public:
 
 			if (BPM < 0.0f) { auto newMulti = BPM / -100.0f; BPM = beatLengthBase * newMulti; }
 
-			sliderTime = static_cast<int>(BPM * (PixelLength / MapSliderMultiplier) / 100.0f);
+			sliderTime = static_cast<int>(BPM * PixelLength / 100.0f);
 			endTime = sliderTime * RepeatCount + startTime;
 
 			auto SliderTokens = split_string(tokens.at(5), "|");
 
 			sliderPoints.push_back(startPosition);
+
 			for (auto i = 1; i < static_cast<int>(SliderTokens.size()); i++) {
 				auto p = split_string(SliderTokens.at(i), ":");
 				auto point = vec2f(stof(p.at(0)), stof(p.at(1)));
 				sliderPoints.push_back(point);
 			}
+
 			if (sliderPoints[sliderPoints.size() - 1] == sliderPoints[sliderPoints.size() - 2]) { // EndPoint == red dot
 				sliderPoints.resize(sliderPoints.size() - 1);
 			}
 			sliderType = SliderTokens[0].c_str()[0];
-		}
-		else if (itSpinner()) {
-			endTime = atoi(tokens.at(5).c_str());
 		}
 	}
 
