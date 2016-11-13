@@ -133,42 +133,22 @@ void timeThread()
 	}
 }
 
-//Keys 1&2, 3&4 threads.
-//void k1_2(bool k1, bool k2) {
-//	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
-//	if (k1) {
-//		//printf("Hit! Z \n");
-//		keys1.ki.wVk = 0x5A; // Z
-//		keys1.ki.dwFlags = 0;
-//		SendInput(1, &keys1, sizeof(INPUT));
-//		this_thread::sleep_for(chrono::microseconds(600));	//Micronaps
-//		keys1.ki.dwFlags = KEYEVENTF_KEYUP;
-//		SendInput(1, &keys1, sizeof(INPUT));
-//	}
-//	if (k2) {
-//		//printf("Hit! X \n");
-//		keys2.ki.wVk = 0x58; // X
-//		keys2.ki.dwFlags = 0;
-//		SendInput(1, &keys2, sizeof(INPUT));
-//		this_thread::sleep_for(chrono::microseconds(600));	//Micronaps
-//		keys2.ki.dwFlags = KEYEVENTF_KEYUP;
-//		SendInput(1, &keys2, sizeof(INPUT));
-//	}
-//}
-
-
-void k1_2(bool k1, bool k2) {
+INPUT in;
+void keys(int x,float time, int a) {
 	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
-	INPUT in;
+
 	vector<WORD> inputs;
 
-	if (k1)
+	if (x == 64 && (time + 10 >= a))
 		inputs.emplace_back('Z');
-	if (k2)
+	else if (x == 192 && (time + 10 >= a))
 		inputs.emplace_back('X');
+	else if (x == 320 && (time + 10 >= a))
+		inputs.emplace_back('C');
+	else if (x == 448 && (time + 10 >= a))
+		inputs.emplace_back('V');
 
 	for (auto input : inputs) {
-		//Debug output
 		in.type = INPUT_KEYBOARD;
 		in.ki.wScan = 0;
 		in.ki.wVk = input;
@@ -176,82 +156,30 @@ void k1_2(bool k1, bool k2) {
 		in.ki.dwExtraInfo = 0;
 		in.ki.dwFlags = 0;
 		SendInput(1, &in, sizeof(in));
+		this_thread::sleep_for(chrono::microseconds(100));
 	}
-	this_thread::sleep_for(chrono::microseconds(600));
 
-	for (auto input : inputs) {
-		in.ki.dwFlags = KEYEVENTF_KEYUP;
-		SendInput(1, &in, sizeof(in));
-	}
+	in.ki.dwFlags = KEYEVENTF_KEYUP;
+	SendInput(1, &in, sizeof(in));
+
+	this_thread::sleep_for(chrono::microseconds(50));
 }
 
-void k3_4(bool k3, bool k4) {
-	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
-	if (k3) {
-		//printf("Hit! C \n");
-		keys3.ki.wVk = 0x43; // C
-		keys3.ki.dwFlags = 0;
-		SendInput(1, &keys3, sizeof(INPUT));
-		this_thread::sleep_for(chrono::microseconds(600));	//Micronaps
-		keys3.ki.dwFlags = KEYEVENTF_KEYUP;
-		SendInput(1, &keys3, sizeof(INPUT));
-	}
-	if (k4) {
-		//printf("Hit! V \n");
-		keys4.ki.wVk = 0x56; // V
-		keys4.ki.dwFlags = 0;
-		SendInput(1, &keys4, sizeof(INPUT));
-		this_thread::sleep_for(chrono::microseconds(600));	//Micronaps
-		keys4.ki.dwFlags = KEYEVENTF_KEYUP;
-		SendInput(1, &keys4, sizeof(INPUT));
-	}
-}
+//TODO: 2. Give program more FPS, or find a way for more CPU. (In the Works)
+//TODO: 4. Clean unused code for this version of bot. (Yeah, yeah~)
+//TODO: LongNotes...
 
 //Function that handles key data to keypresses. 
 void ManiaKeys(const HitObject* object)
-{
-	//Bools for applicable keypresses
-	bool key1 = false, key2 = false, key3 = false, key4 = false;
-	
+{	
 	while (SongTime < object->getStartTime() && songStarted)
 	{
-		auto a = static_cast<int>(object->getStartTime());
-		//Key 1 Hit.
-		if ((object->getStartPosition().x == 64) && (SongTime + 10 >= a)) {
-			key1 = true;
-		}
-		//Key 2 Hit.
-		if ((object->getStartPosition().x == 192) && (SongTime + 10 >= a)) {
-			key2 = true;
-		}
-		//Key 3 Hit.
-		if ((object->getStartPosition().x == 320) && (SongTime + 10 >= a)) {
-			key3 = true;
-		}
-		//Key 4 Hit.
-		if ((object->getStartPosition().x == 448) && (SongTime + 10 >= a)) {
-			key4 = true;
-		}
+		int a = static_cast<int>(object->getStartTime());
 
-		//Micronaps
-		this_thread::sleep_for(chrono::microseconds(250));
-
-		//TODO: Better simultaneous keypresses.
-		//TODO: Single keys actually hit 4-times. Fix
-		if (key1 || key2) {
-			thread keys1_2(k1_2, key1, key2);
-			keys1_2.detach();
-		}
-		if (key3 || key4) {
-			thread keys3_4(k3_4,key3, key4);
-			keys3_4.detach();
-		}
+		thread gotoKeys(keys, static_cast<int>(object->getStartPosition().x), SongTime, a);
+		gotoKeys.detach();
+		this_thread::sleep_for(chrono::microseconds(50));
 	}
-	//Output
-	///printf("K1 %s\n", key1 ? "true" : "false");
-	///printf("K2 %s\n", key2 ? "true" : "false");
-	///printf("K3 %s\n", key3 ? "true" : "false");
-	///printf("K4 %s\n", key3 ? "true" : "false");
 }
 
 //Auto Thread.
@@ -530,7 +458,3 @@ int main()
 	goto redo;		//Goto.
 	return 0;
 }
-
-//TODO: 2. Give program more FPS, or find a way for more CPU. (In the Works)
-//TODO: 4. Clean unused code for this version of bot. (Yeah, yeah~)
-//TODO: LongNotes...
